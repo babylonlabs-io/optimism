@@ -164,6 +164,10 @@ func (fi *Finalizer) tryFinalize(ctx context.Context) error {
 	for _, fd := range fi.finalityData {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
 			// TODO: check from Babylon Chain to see if the block is EOTS verified
+			// - check if fd.L2Block.Number is finalized on Babylon
+			// - ask Babylon to get the block hash at height fd.L2Block.Number
+			// - compare fd.L2Block.Hash with the one received from Babylon
+			// - set babylonFinalized to true only if the block is Babylon-finalized and the hash matches
 			babylonFinalized := true
 			if babylonFinalized {
 				finalizedL2 = fd.L2Block
