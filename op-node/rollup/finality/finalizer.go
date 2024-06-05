@@ -163,8 +163,12 @@ func (fi *Finalizer) tryFinalize(ctx context.Context) error {
 	// go through the latest inclusion data, and find the last L2 block that was derived from a finalized L1 block
 	for _, fd := range fi.finalityData {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
-			finalizedL2 = fd.L2Block
-			finalizedDerivedFrom = fd.L1Block
+			// TODO: check from Babylon Chain to see if the block is EOTS verified
+			babylonFinalized := true
+			if babylonFinalized {
+				finalizedL2 = fd.L2Block
+				finalizedDerivedFrom = fd.L1Block
+			}
 			// keep iterating, there may be later L2 blocks that can also be finalized
 		}
 	}
