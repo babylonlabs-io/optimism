@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+
+	"github.com/babylonchain/babylon-da-sdk/sdk"
 )
 
 // defaultFinalityLookback defines the amount of L1<>L2 relations to track for finalization purposes, one per L1 block.
@@ -163,12 +165,29 @@ func (fi *Finalizer) tryFinalize(ctx context.Context) error {
 	// go through the latest inclusion data, and find the last L2 block that was derived from a finalized L1 block
 	for _, fd := range fi.finalityData {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
-			// TODO: check from Babylon Chain to see if the block is EOTS verified
-			// - check if fd.L2Block.Number is finalized on Babylon
-			// - ask Babylon to get the block hash at height fd.L2Block.Number
-			// - compare fd.L2Block.Hash with the one received from Babylon
-			// - set babylonFinalized to true only if the block is Babylon-finalized and the hash matches
-			babylonFinalized := true
+			// Initialise new BabylonChain client
+			// TODO: replace config with actual values
+			config := sdk.Config {
+				ChainType: 0,
+				ContractAddr: "osmo1zck32had0fpc4fu34ae58zvs3mjd5yrzs70thw027nfqst7edc3sdqak0m",
+			}
+			client, err := sdk.NewClient(config)
+			if err != nil {
+				return derive.NewTemporaryError(fmt.Errorf("failed to initialize BabylonChain client: %w", err))
+			}
+
+			// check if fd.L2Block.Number is finalized on Babylon
+			queryParams := sdk.QueryParams {
+				BlockHeight: fd.L2Block.Number,
+				BlockHash: fd.L2Block.Hash.String(),
+				BlockTimestamp: fd.L2Block.Time,
+			}
+			babylonFinalized, err := client.QueryIsBlockBabylonFinalized(queryParams)
+			if err != nil {
+				return derive.NewTemporaryError(fmt.Errorf("failed to check if block %d is finalized on Babylon: %w", fd.L2Block.Number, err))
+			}
+
+			// set finalized status
 			if babylonFinalized {
 				finalizedL2 = fd.L2Block
 				finalizedDerivedFrom = fd.L1Block
