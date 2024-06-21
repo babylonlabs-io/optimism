@@ -377,6 +377,7 @@ require (
 
 replace (
 	github.com/babylonchain/babylon => ../babylon-private
+	github.com/cockroachdb/pebble => github.com/cockroachdb/pebble v0.0.0-20231018212520-f6cde3fc2fa4
 	github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101315.3-rc.1
 )
 

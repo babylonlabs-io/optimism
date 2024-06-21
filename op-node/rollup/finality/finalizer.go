@@ -167,9 +167,9 @@ func (fi *Finalizer) tryFinalize(ctx context.Context) error {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
 			// Initialise new BabylonChain client
 			// TODO: replace config with actual values
-			config := sdk.Config {
-				ChainType: 0,
-				ContractAddr: "osmo1zck32had0fpc4fu34ae58zvs3mjd5yrzs70thw027nfqst7edc3sdqak0m",
+			config := sdk.Config{
+				ChainType:    0,
+				ContractAddr: "bbn1ghd753shjuwexxywmgs4xz7x2q732vcnkm6h2pyv9s6ah3hylvrqxxvh0f",
 			}
 			client, err := sdk.NewClient(config)
 			if err != nil {
@@ -177,9 +177,9 @@ func (fi *Finalizer) tryFinalize(ctx context.Context) error {
 			}
 
 			// check if fd.L2Block.Number is finalized on Babylon
-			queryParams := sdk.QueryParams {
-				BlockHeight: fd.L2Block.Number,
-				BlockHash: fd.L2Block.Hash.String(),
+			queryParams := sdk.QueryParams{
+				BlockHeight:    fd.L2Block.Number,
+				BlockHash:      fd.L2Block.Hash.String(),
 				BlockTimestamp: fd.L2Block.Time,
 			}
 			babylonFinalized, err := client.QueryIsBlockBabylonFinalized(queryParams)
