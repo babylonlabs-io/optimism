@@ -86,6 +86,8 @@ type Finalizer struct {
 	l1Fetcher FinalizerL1Interface
 
 	ec FinalizerEngine
+
+	babylonConfig rollup.BabylonConfig
 }
 
 func NewFinalizer(log log.Logger, cfg *rollup.Config, l1Fetcher FinalizerL1Interface, ec FinalizerEngine) *Finalizer {
@@ -98,6 +100,10 @@ func NewFinalizer(log log.Logger, cfg *rollup.Config, l1Fetcher FinalizerL1Inter
 		finalityLookback: lookback,
 		l1Fetcher:        l1Fetcher,
 		ec:               ec,
+		babylonConfig:    rollup.BabylonConfig{
+			ChainType:        cfg.BabylonConfig.ChainType,
+			ContractAddress:  cfg.BabylonConfig.ContractAddress,
+		},
 	}
 }
 
@@ -166,10 +172,9 @@ func (fi *Finalizer) tryFinalize(ctx context.Context) error {
 	for _, fd := range fi.finalityData {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
 			// Initialise new BabylonChain client
-			// TODO: replace config with actual values
 			config := sdk.Config{
-				ChainType:    0,
-				ContractAddr: "bbn1ghd753shjuwexxywmgs4xz7x2q732vcnkm6h2pyv9s6ah3hylvrqxxvh0f",
+				ChainType:    fi.babylonConfig.ChainType,
+				ContractAddr: fi.babylonConfig.ContractAddress,
 			}
 			client, err := sdk.NewClient(config)
 			if err != nil {
