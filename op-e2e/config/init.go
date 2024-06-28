@@ -70,10 +70,10 @@ func init() {
 		panic(err)
 	}
 
-	defaultL1AllocsPath := filepath.Join(root, ".devnet", "allocs-l1.json")
-	defaultL2AllocsDir := filepath.Join(root, ".devnet")
-	defaultL1DeploymentsPath := filepath.Join(root, ".devnet", "addresses.json")
-	defaultDeployConfigPath := filepath.Join(root, "packages", "contracts-bedrock", "deploy-config", "devnetL1.json")
+	defaultL1AllocsPath := filepath.Join(root, "itest", "opstackl2", "devnet-data", "allocs-l1.json")
+	defaultL2AllocsDir := filepath.Join(root, "itest", "opstackl2", "devnet-data")
+	defaultL1DeploymentsPath := filepath.Join(root, "itest", "opstackl2", "devnet-data", "addresses.json")
+	defaultDeployConfigPath := filepath.Join(root, "itest", "opstackl2", "devnet-data", "devnetL1.json")
 
 	flag.StringVar(&l1AllocsPath, "l1-allocs", defaultL1AllocsPath, "")
 	flag.StringVar(&l2AllocsDir, "l2-allocs-dir", defaultL2AllocsDir, "")
@@ -85,7 +85,8 @@ func init() {
 	flag.Parse()
 
 	// Setup global logger
-	lvl := log.FromLegacyLevel(EthNodeVerbosity)
+	// TODO
+	lvl := log.FromLegacyLevel(2)
 	var handler slog.Handler
 	if lvl > log.LevelCrit {
 		handler = log.DiscardHandler()
