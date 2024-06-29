@@ -33,7 +33,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	geth_eth "github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
@@ -152,14 +151,7 @@ func DefaultSystemConfig(t testing.TB) SystemConfig {
 			"batcher":   testlog.Logger(t, log.LevelInfo).New("role", "batcher"),
 			"proposer":  testlog.Logger(t, log.LevelCrit).New("role", "proposer"),
 		},
-		GethOptions: map[string][]geth.GethOption{
-			"sequencer": {
-				func(_ *ethconfig.Config, nodeCfg *node.Config) error {
-					nodeCfg.HTTPPort = 12345
-					return nil
-				},
-			},
-		},
+		GethOptions:            map[string][]geth.GethOption{},
 		P2PTopology:            nil, // no P2P connectivity by default
 		NonFinalizedProposals:  false,
 		ExternalL2Shim:         config.ExternalL2Shim,
@@ -557,7 +549,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	sys.RollupConfig = &defaultConfig
 
 	// Create a fake Beacon node to hold on to blobs created by the L1 miner, and to serve them to L2
-	bcn := fakebeacon.NewBeacon(testlog.Logger(t, log.LevelCrit).New("role", "l1_cl"),
+	bcn := fakebeacon.NewBeacon(testlog.Logger(t, log.LevelInfo).New("role", "l1_cl"),
 		path.Join(cfg.BlobsPath, "l1_cl"), l1Genesis.Timestamp, cfg.DeployConfig.L1BlockTime)
 	t.Cleanup(func() {
 		_ = bcn.Close()

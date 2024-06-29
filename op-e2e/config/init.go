@@ -85,8 +85,8 @@ func init() {
 	flag.Parse()
 
 	// Setup global logger
-	// TODO
-	lvl := log.FromLegacyLevel(2)
+	// TODO: properly pass in verbosity level
+	lvl := log.FromLegacyLevel(1)
 	var handler slog.Handler
 	if lvl > log.LevelCrit {
 		handler = log.DiscardHandler()
