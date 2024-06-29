@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+
+	"github.com/babylonchain/babylon-da-sdk/sdk"
 )
 
 // defaultFinalityLookback defines the amount of L1<>L2 relations to track for finalization purposes, one per L1 block.
@@ -91,6 +93,10 @@ type Finalizer struct {
 	finalityLookback uint64
 
 	l1Fetcher FinalizerL1Interface
+
+	ec FinalizerEngine
+
+	babylonConfig rollup.BabylonConfig
 }
 
 func NewFinalizer(ctx context.Context, log log.Logger, cfg *rollup.Config, l1Fetcher FinalizerL1Interface, emitter rollup.EventEmitter) *Finalizer {
@@ -104,6 +110,10 @@ func NewFinalizer(ctx context.Context, log log.Logger, cfg *rollup.Config, l1Fet
 		finalityLookback: lookback,
 		l1Fetcher:        l1Fetcher,
 		emitter:          emitter,
+		babylonConfig: rollup.BabylonConfig{
+			ChainType:       cfg.BabylonConfig.ChainType,
+			ContractAddress: cfg.BabylonConfig.ContractAddress,
+		},
 	}
 }
 
@@ -203,8 +213,32 @@ func (fi *Finalizer) tryFinalize() {
 	// go through the latest inclusion data, and find the last L2 block that was derived from a finalized L1 block
 	for _, fd := range fi.finalityData {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
-			finalizedL2 = fd.L2Block
-			finalizedDerivedFrom = fd.L1Block
+			// Initialise new BabylonChain client
+			config := sdk.Config{
+				ChainType:    fi.babylonConfig.ChainType,
+				ContractAddr: fi.babylonConfig.ContractAddress,
+			}
+			client, err := sdk.NewClient(config)
+			if err != nil {
+				return derive.NewTemporaryError(fmt.Errorf("failed to initialize BabylonChain client: %w", err))
+			}
+
+			// check if fd.L2Block.Number is finalized on Babylon
+			queryParams := sdk.QueryParams{
+				BlockHeight:    fd.L2Block.Number,
+				BlockHash:      fd.L2Block.Hash.String(),
+				BlockTimestamp: fd.L2Block.Time,
+			}
+			babylonFinalized, err := client.QueryIsBlockBabylonFinalized(queryParams)
+			if err != nil {
+				return derive.NewTemporaryError(fmt.Errorf("failed to check if block %d is finalized on Babylon: %w", fd.L2Block.Number, err))
+			}
+
+			// set finalized status
+			if babylonFinalized {
+				finalizedL2 = fd.L2Block
+				finalizedDerivedFrom = fd.L1Block
+			}
 			// keep iterating, there may be later L2 blocks that can also be finalized
 		}
 	}
