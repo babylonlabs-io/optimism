@@ -80,13 +80,12 @@ func init() {
 	flag.StringVar(&l1DeploymentsPath, "l1-deployments", defaultL1DeploymentsPath, "")
 	flag.StringVar(&deployConfigPath, "deploy-config", defaultDeployConfigPath, "")
 	flag.StringVar(&externalL2, "externalL2", "", "Enable tests with external L2")
-	flag.IntVar(&EthNodeVerbosity, "ethLogVerbosity", LegacyLevelInfo, "The (legacy geth) level of verbosity to use for the eth node logs")
+	flag.IntVar(&EthNodeVerbosity, "ethLogVerbosity", LegacyLevelError, "The (legacy geth) level of verbosity to use for the eth node logs")
 	testing.Init() // Register test flags before parsing
 	flag.Parse()
 
 	// Setup global logger
-	// TODO: properly pass in verbosity level
-	lvl := log.FromLegacyLevel(1)
+	lvl := log.FromLegacyLevel(EthNodeVerbosity)
 	var handler slog.Handler
 	if lvl > log.LevelCrit {
 		handler = log.DiscardHandler()
