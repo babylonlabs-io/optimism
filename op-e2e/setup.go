@@ -33,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	geth_eth "github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
@@ -151,7 +152,14 @@ func DefaultSystemConfig(t testing.TB) SystemConfig {
 			"batcher":   testlog.Logger(t, log.LevelInfo).New("role", "batcher"),
 			"proposer":  testlog.Logger(t, log.LevelCrit).New("role", "proposer"),
 		},
-		GethOptions:            map[string][]geth.GethOption{},
+		GethOptions: map[string][]geth.GethOption{
+			"sequencer": {
+				func(_ *ethconfig.Config, nodeCfg *node.Config) error {
+					nodeCfg.HTTPPort = 12345
+					return nil
+				},
+			},
+		},
 		P2PTopology:            nil, // no P2P connectivity by default
 		NonFinalizedProposals:  false,
 		ExternalL2Shim:         config.ExternalL2Shim,
