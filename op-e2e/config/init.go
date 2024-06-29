@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/foundry"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-e2e/external"
 	op_service "github.com/ethereum-optimism/optimism/op-service"
@@ -39,12 +40,12 @@ var (
 	// in end to end tests.
 
 	// L1Allocs represents the L1 genesis block state.
-	L1Allocs *genesis.ForgeAllocs
+	L1Allocs *foundry.ForgeAllocs
 	// L1Deployments maps contract names to accounts in the L1
 	// genesis block state.
 	L1Deployments *genesis.L1Deployments
 	// l2Allocs represents the L2 allocs, by hardfork/mode (e.g. delta, ecotone, interop, other)
-	l2Allocs map[genesis.L2AllocsMode]*genesis.ForgeAllocs
+	l2Allocs map[genesis.L2AllocsMode]*foundry.ForgeAllocs
 	// DeployConfig represents the deploy config used by the system.
 	DeployConfig *genesis.DeployConfig
 	// ExternalL2Shim is the shim to use if external ethereum client testing is
@@ -69,17 +70,17 @@ func init() {
 		panic(err)
 	}
 
-	defaultL1AllocsPath := filepath.Join(root, ".devnet", "allocs-l1.json")
-	defaultL2AllocsDir := filepath.Join(root, ".devnet")
-	defaultL1DeploymentsPath := filepath.Join(root, ".devnet", "addresses.json")
-	defaultDeployConfigPath := filepath.Join(root, "packages", "contracts-bedrock", "deploy-config", "devnetL1.json")
+	defaultL1AllocsPath := filepath.Join(root, "itest", "opstackl2", "devnet-data", "allocs-l1.json")
+	defaultL2AllocsDir := filepath.Join(root, "itest", "opstackl2", "devnet-data")
+	defaultL1DeploymentsPath := filepath.Join(root, "itest", "opstackl2", "devnet-data", "addresses.json")
+	defaultDeployConfigPath := filepath.Join(root, "itest", "opstackl2", "devnet-data", "devnetL1.json")
 
 	flag.StringVar(&l1AllocsPath, "l1-allocs", defaultL1AllocsPath, "")
 	flag.StringVar(&l2AllocsDir, "l2-allocs-dir", defaultL2AllocsDir, "")
 	flag.StringVar(&l1DeploymentsPath, "l1-deployments", defaultL1DeploymentsPath, "")
 	flag.StringVar(&deployConfigPath, "deploy-config", defaultDeployConfigPath, "")
 	flag.StringVar(&externalL2, "externalL2", "", "Enable tests with external L2")
-	flag.IntVar(&EthNodeVerbosity, "ethLogVerbosity", LegacyLevelInfo, "The (legacy geth) level of verbosity to use for the eth node logs")
+	flag.IntVar(&EthNodeVerbosity, "ethLogVerbosity", LegacyLevelError, "The (legacy geth) level of verbosity to use for the eth node logs")
 	testing.Init() // Register test flags before parsing
 	flag.Parse()
 
@@ -107,14 +108,14 @@ func init() {
 		return
 	}
 
-	L1Allocs, err = genesis.LoadForgeAllocs(l1AllocsPath)
+	L1Allocs, err = foundry.LoadForgeAllocs(l1AllocsPath)
 	if err != nil {
 		panic(err)
 	}
-	l2Allocs = make(map[genesis.L2AllocsMode]*genesis.ForgeAllocs)
+	l2Allocs = make(map[genesis.L2AllocsMode]*foundry.ForgeAllocs)
 	mustL2Allocs := func(mode genesis.L2AllocsMode) {
 		name := "allocs-l2-" + string(mode)
-		allocs, err := genesis.LoadForgeAllocs(filepath.Join(l2AllocsDir, name+".json"))
+		allocs, err := foundry.LoadForgeAllocs(filepath.Join(l2AllocsDir, name+".json"))
 		if err != nil {
 			panic(err)
 		}
@@ -153,7 +154,7 @@ func init() {
 	}
 }
 
-func L2Allocs(mode genesis.L2AllocsMode) *genesis.ForgeAllocs {
+func L2Allocs(mode genesis.L2AllocsMode) *foundry.ForgeAllocs {
 	allocs, ok := l2Allocs[mode]
 	if !ok {
 		panic(fmt.Errorf("unknown L2 allocs mode: %q", mode))

@@ -540,6 +540,10 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			FjordTime:               cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			InteropTime:             cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
+			BabylonConfig: &rollup.BabylonConfig{
+				ChainType:       cfg.DeployConfig.BabylonFinalityGadgetChainType,
+				ContractAddress: cfg.DeployConfig.BabylonFinalityGadgetContractAddress,
+			},
 		}
 	}
 	defaultConfig := makeRollupConfig()
@@ -689,9 +693,6 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		}
 	}
 
-	// Don't log state snapshots in test output
-	snapLog := log.NewLogger(log.DiscardHandler())
-
 	// Rollup nodes
 
 	// Ensure we are looping through the nodes in alphabetical order
@@ -732,7 +733,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 				l.Warn("closed op-node!")
 			}()
 		}
-		node, err := rollupNode.New(context.Background(), &c, l, snapLog, "", metrics.NewMetrics(""))
+		node, err := rollupNode.New(context.Background(), &c, l, "", metrics.NewMetrics(""))
 		if err != nil {
 			return nil, err
 		}
