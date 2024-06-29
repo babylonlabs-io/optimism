@@ -214,24 +214,24 @@ func (fi *Finalizer) tryFinalize() {
 	for _, fd := range fi.finalityData {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
 			// Initialise new BabylonChain client
-			config := sdk.Config{
+			config := &sdk.Config{
 				ChainType:    fi.babylonConfig.ChainType,
 				ContractAddr: fi.babylonConfig.ContractAddress,
 			}
 			client, err := sdk.NewClient(config)
 			if err != nil {
-				return derive.NewTemporaryError(fmt.Errorf("failed to initialize BabylonChain client: %w", err))
+				return
 			}
 
 			// check if fd.L2Block.Number is finalized on Babylon
-			queryParams := sdk.QueryParams{
+			queryParams := &sdk.L2Block{
 				BlockHeight:    fd.L2Block.Number,
 				BlockHash:      fd.L2Block.Hash.String(),
 				BlockTimestamp: fd.L2Block.Time,
 			}
 			babylonFinalized, err := client.QueryIsBlockBabylonFinalized(queryParams)
 			if err != nil {
-				return derive.NewTemporaryError(fmt.Errorf("failed to check if block %d is finalized on Babylon: %w", fd.L2Block.Number, err))
+				return
 			}
 
 			// set finalized status
