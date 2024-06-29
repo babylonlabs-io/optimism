@@ -540,6 +540,10 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			FjordTime:               cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			InteropTime:             cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
+			BabylonConfig: &rollup.BabylonConfig{
+				ChainType:       cfg.DeployConfig.BabylonFinalityGadgetChainType,
+				ContractAddress: cfg.DeployConfig.BabylonFinalityGadgetContractAddress,
+			},
 		}
 	}
 	defaultConfig := makeRollupConfig()

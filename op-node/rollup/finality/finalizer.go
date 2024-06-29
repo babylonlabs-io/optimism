@@ -94,8 +94,7 @@ type Finalizer struct {
 
 	l1Fetcher FinalizerL1Interface
 
-	ec FinalizerEngine
-
+	// babylonConfig is the configuration for the Babylon DA SDK client
 	babylonConfig rollup.BabylonConfig
 }
 
@@ -220,6 +219,7 @@ func (fi *Finalizer) tryFinalize() {
 			}
 			client, err := sdk.NewClient(config)
 			if err != nil {
+				fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to initialize BabylonChain client: %w", err)})
 				return
 			}
 
@@ -231,6 +231,7 @@ func (fi *Finalizer) tryFinalize() {
 			}
 			babylonFinalized, err := client.QueryIsBlockBabylonFinalized(queryParams)
 			if err != nil {
+				fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to check if block %d is finalized on Babylon: %w", fd.L2Block.Number, err)})
 				return
 			}
 
