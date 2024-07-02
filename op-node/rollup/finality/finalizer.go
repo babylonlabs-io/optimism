@@ -233,8 +233,12 @@ func (fi *Finalizer) tryFinalize() {
 			}
 			babylonFinalized, err := client.QueryIsBlockBabylonFinalized(queryParams)
 			if err != nil {
-				fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to check if block %d is finalized on Babylon: %w", fd.L2Block.Number, err)})
-				return
+				// If the error encountered is of type NoFpHasVotingPowerError, it should be ignored;
+				// for any other error types, emit a critical error event.
+				if _, ok := err.(*sdk.NoFpHasVotingPowerError); !ok {
+					fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to check if block %d is finalized on Babylon: %w", fd.L2Block.Number, err)})
+					return
+				}
 			}
 
 			// set finalized status
