@@ -236,7 +236,7 @@ func (fi *Finalizer) tryFinalize() {
 
 			// If the error encountered is of type NoFpHasVotingPowerError, it should be ignored;
 			// for any other error types, emit a critical error event.
-			if err != nil && !errors.Is(err, sdk.NoFpHasVotingPowerError) {
+			if err != nil && !errors.Is(err, sdk.ErrNoFpHasVotingPower) {
 				fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to check if block %d is finalized on Babylon: %w", fd.L2Block.Number, err)})
 				return
 			}
