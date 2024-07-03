@@ -2,6 +2,7 @@ package finality
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -232,13 +233,12 @@ func (fi *Finalizer) tryFinalize() {
 				BlockTimestamp: fd.L2Block.Time,
 			}
 			babylonFinalized, err := client.QueryIsBlockBabylonFinalized(queryParams)
-			if err != nil {
-				// If the error encountered is of type NoFpHasVotingPowerError, it should be ignored;
-				// for any other error types, emit a critical error event.
-				if _, ok := err.(*sdk.NoFpHasVotingPowerError); !ok {
-					fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to check if block %d is finalized on Babylon: %w", fd.L2Block.Number, err)})
-					return
-				}
+
+			// If the error encountered is of type NoFpHasVotingPowerError, it should be ignored;
+			// for any other error types, emit a critical error event.
+			if err != nil && !errors.Is(err, sdk.NoFpHasVotingPowerError) {
+				fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to check if block %d is finalized on Babylon: %w", fd.L2Block.Number, err)})
+				return
 			}
 
 			// set finalized status
