@@ -215,13 +215,12 @@ func (fi *Finalizer) tryFinalize() {
 	// go through the latest inclusion data, and find the last L2 block that was derived from a finalized L1 block
 	for _, fd := range fi.finalityData {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
-			// Initialise new BabylonChain client
 			btcConfig := btcclient.DefaultBTCConfig()
 			btcConfig.RPCHost = fi.babylonConfig.BitcoinRpc
 			config := &sdk.Config{
 				ChainType:    fi.babylonConfig.ChainType,
 				ContractAddr: fi.babylonConfig.ContractAddress,
-				BTCConfig:   	btcConfig,
+				BTCConfig:    btcConfig,
 			}
 			client, err := sdk.NewClient(config)
 			if err != nil {
@@ -235,7 +234,14 @@ func (fi *Finalizer) tryFinalize() {
 				BlockHash:      fd.L2Block.Hash.String(),
 				BlockTimestamp: fd.L2Block.Time,
 			}
+			fi.log.Debug(
+				"babylon gadget query params",
+				"block_height", queryParams.BlockHeight,
+				"block_hash", queryParams.BlockHash,
+				"block_timestamp", queryParams.BlockTimestamp,
+			)
 			babylonFinalized, err := client.QueryIsBlockBabylonFinalized(queryParams)
+			fi.log.Debug("babylon gadget query result", "babylon_finalized", babylonFinalized)
 
 			// If the error encountered is of type NoFpHasVotingPowerError, it should be ignored;
 			// for any other error types, emit a critical error event.
@@ -246,6 +252,7 @@ func (fi *Finalizer) tryFinalize() {
 
 			// set finalized status
 			if babylonFinalized {
+				fi.log.Debug("set finalized status", "l2_block", fd.L2Block)
 				finalizedL2 = fd.L2Block
 				finalizedDerivedFrom = fd.L1Block
 			}
