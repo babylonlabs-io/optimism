@@ -348,6 +348,8 @@ func (fi *Finalizer) findLastFinalizedL2BlockWithConsecutiveQuorom(
 	// TODO: we shouldn't skip on no voting power.
 	// https://github.com/babylonchain/babylon-finality-gadget/issues/59
 	if err != nil && !errors.Is(err, sdkclient.ErrNoFpHasVotingPower) {
+		// on CriticalError, the chain will get stuck because
+		// op-e2e/actions/l2_verifier.go will detect it and panic
 		fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf(
 			"failed to check if block %d to %d is finalized on Babylon: %w",
 			finalizedL2Number+1,
