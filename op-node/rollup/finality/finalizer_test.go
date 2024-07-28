@@ -11,12 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/babylonchain/babylon-finality-gadget/sdk/cwclient"
+	"github.com/babylonchain/babylon-finality-gadget/testutil/mocks"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"go.uber.org/mock/gomock"
 )
 
 func TestEngineQueue_Finalize(t *testing.T) {
@@ -82,6 +85,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		L1Origin:       refA.ID(),
 		SequenceNumber: 0,
 	}
+
 	cfg := &rollup.Config{
 		Genesis: rollup.Genesis{
 			L1:     refA.ID(),
@@ -91,6 +95,13 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		BlockTime:     1,
 		SeqWindowSize: 2,
 	}
+	babylonCfg := &rollup.BabylonConfig{
+		ChainID:         "chain-test",
+		ContractAddress: "bbn1eyfccmjm6732k7wp4p6gdjwhxjwsvje44j0hfx8nkgrm8fs7vqfsa3n3gc",
+		BitcoinRpc:      "https://rpc.this-is-a-mock.com/btc",
+	}
+	cfg.BabylonConfig = babylonCfg
+
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
 		Number:         refA0.Number + 1,
@@ -190,8 +201,48 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+		l2F.ExpectL2BlockRefByNumber(refA1.Number, refA1, nil)
+		l2F.ExpectL2BlockRefByNumber(refB0.Number, refB0, nil)
+		l2F.ExpectL2BlockRefByNumber(refB1.Number, refB1, nil)
+		l2F.ExpectL2BlockRefByNumber(refC0.Number, refC0, nil)
+		l2F.ExpectL2BlockRefByNumber(refC1.Number, refC1, nil)
+
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		sdkClient := mocks.NewMockISdkClient(ctl)
+		queryBlocks := make([]*cwclient.L2Block, refC1.Number)
+		queryBlocks[0] = &cwclient.L2Block{
+			BlockHeight:    refA1.Number,
+			BlockHash:      refA1.Hash.String(),
+			BlockTimestamp: refA1.Time,
+		}
+		queryBlocks[1] = &cwclient.L2Block{
+			BlockHeight:    refB0.Number,
+			BlockHash:      refB0.Hash.String(),
+			BlockTimestamp: refB0.Time,
+		}
+		queryBlocks[2] = &cwclient.L2Block{
+			BlockHeight:    refB1.Number,
+			BlockHash:      refB1.Hash.String(),
+			BlockTimestamp: refB1.Time,
+		}
+		queryBlocks[3] = &cwclient.L2Block{
+			BlockHeight:    refC0.Number,
+			BlockHash:      refC0.Hash.String(),
+			BlockTimestamp: refC0.Time,
+		}
+		queryBlocks[4] = &cwclient.L2Block{
+			BlockHeight:    refC1.Number,
+			BlockHash:      refC1.Hash.String(),
+			BlockTimestamp: refC1.Time,
+		}
+		sdkClient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocks).Return(&refC1.Number, nil)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi.babylonFinalityClient = sdkClient
 
 		// now say C1 was included in D and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
@@ -224,8 +275,11 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil) // to check finality signal
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil) // to check what was derived from (same in this case)
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, l2F, emitter)
 
 		// now say C1 was included in D and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
@@ -263,8 +317,11 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
 		defer l1F.AssertExpectations(t)
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, l2F, emitter)
 
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
 		fi.OnEvent(derive.DeriverIdleEvent{Origin: refD})
@@ -348,8 +405,11 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil) // check the signal
 		l1F.ExpectL1BlockRefByNumber(refC.Number, refC, nil) // check what we derived the L2 block from
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, l2F, emitter)
 
 		// now say B1 was included in C and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refB1, DerivedFrom: refC})
@@ -384,8 +444,11 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F.ExpectL1BlockRefByNumber(refF.Number, refF, nil) // check signal
 		l1F.ExpectL1BlockRefByNumber(refE.Number, refE, nil) // post-reorg
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, l2F, emitter)
 
 		// now say B1 was included in C and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refB1, DerivedFrom: refC})
