@@ -362,8 +362,13 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l2F := &testutils.MockL2Client{}
 		defer l2F.AssertExpectations(t)
 
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		sdkClient := mocks.NewMockISdkClient(ctl)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, l2F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi.babylonFinalityClient = sdkClient
 
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
 		fi.OnEvent(derive.DeriverIdleEvent{Origin: refD})
@@ -378,10 +383,43 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		fi.OnEvent(FinalizeL1Event{FinalizedL1: refD})
 		emitter.AssertExpectations(t)
 
+		queryBlocks := make([]*cwclient.L2Block, refC1.Number)
+		queryBlocks[0] = &cwclient.L2Block{
+			BlockHeight:    refA1.Number,
+			BlockHash:      refA1.Hash.String(),
+			BlockTimestamp: refA1.Time,
+		}
+		queryBlocks[1] = &cwclient.L2Block{
+			BlockHeight:    refB0.Number,
+			BlockHash:      refB0.Hash.String(),
+			BlockTimestamp: refB0.Time,
+		}
+		queryBlocks[2] = &cwclient.L2Block{
+			BlockHeight:    refB1.Number,
+			BlockHash:      refB1.Hash.String(),
+			BlockTimestamp: refB1.Time,
+		}
+		queryBlocks[3] = &cwclient.L2Block{
+			BlockHeight:    refC0.Number,
+			BlockHash:      refC0.Hash.String(),
+			BlockTimestamp: refC0.Time,
+		}
+		queryBlocks[4] = &cwclient.L2Block{
+			BlockHeight:    refC1.Number,
+			BlockHash:      refC1.Hash.String(),
+			BlockTimestamp: refC1.Time,
+		}
+		sdkClient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocks).Return(&refC1.Number, nil).AnyTimes()
+
 		// C1 was included in D, and should be finalized now
 		emitter.ExpectOnce(engine.PromoteFinalizedEvent{Ref: refC1})
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
+		l2F.ExpectL2BlockRefByNumber(refA1.Number, refA1, nil)
+		l2F.ExpectL2BlockRefByNumber(refB0.Number, refB0, nil)
+		l2F.ExpectL2BlockRefByNumber(refB1.Number, refB1, nil)
+		l2F.ExpectL2BlockRefByNumber(refC0.Number, refC0, nil)
+		l2F.ExpectL2BlockRefByNumber(refC1.Number, refC1, nil)
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 		l1F.AssertExpectations(t)
@@ -391,10 +429,24 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		fi.OnEvent(FinalizeL1Event{FinalizedL1: refE})
 		emitter.AssertExpectations(t)
 
+		queryBlocksTwo := make([]*cwclient.L2Block, 1)
+		queryBlocksTwo[0] = &cwclient.L2Block{
+			BlockHeight:    refD0.Number,
+			BlockHash:      refD0.Hash.String(),
+			BlockTimestamp: refD0.Time,
+		}
+		sdkClient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocksTwo).Return(&refD0.Number, nil).AnyTimes()
+
 		// D0 was included in E, and should be finalized now
 		emitter.ExpectOnce(engine.PromoteFinalizedEvent{Ref: refD0})
 		l1F.ExpectL1BlockRefByNumber(refE.Number, refE, nil)
 		l1F.ExpectL1BlockRefByNumber(refE.Number, refE, nil)
+		l2F.ExpectL2BlockRefByNumber(refA1.Number, refA1, nil)
+		l2F.ExpectL2BlockRefByNumber(refB0.Number, refB0, nil)
+		l2F.ExpectL2BlockRefByNumber(refB1.Number, refB1, nil)
+		l2F.ExpectL2BlockRefByNumber(refC0.Number, refC0, nil)
+		l2F.ExpectL2BlockRefByNumber(refC1.Number, refC1, nil)
+		l2F.ExpectL2BlockRefByNumber(refD0.Number, refD0, nil)
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 		l1F.AssertExpectations(t)
@@ -429,10 +481,43 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		fi.OnEvent(FinalizeL1Event{FinalizedL1: refH})
 		emitter.AssertExpectations(t)
 
+		queryBlocksThree := make([]*cwclient.L2Block, 5)
+		queryBlocksThree[0] = &cwclient.L2Block{
+			BlockHeight:    refD1.Number,
+			BlockHash:      refD1.Hash.String(),
+			BlockTimestamp: refD1.Time,
+		}
+		queryBlocksThree[1] = &cwclient.L2Block{
+			BlockHeight:    refE0.Number,
+			BlockHash:      refE0.Hash.String(),
+			BlockTimestamp: refE0.Time,
+		}
+		queryBlocksThree[2] = &cwclient.L2Block{
+			BlockHeight:    refE1.Number,
+			BlockHash:      refE1.Hash.String(),
+			BlockTimestamp: refE1.Time,
+		}
+		queryBlocksThree[3] = &cwclient.L2Block{
+			BlockHeight:    refF0.Number,
+			BlockHash:      refF0.Hash.String(),
+			BlockTimestamp: refF0.Time,
+		}
+		queryBlocksThree[4] = &cwclient.L2Block{
+			BlockHeight:    refF1.Number,
+			BlockHash:      refF1.Hash.String(),
+			BlockTimestamp: refF1.Time,
+		}
+		sdkClient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocksThree).Return(&refF1.Number, nil).AnyTimes()
+
 		// F1 should be finalized now, since it was included in H
 		emitter.ExpectOnce(engine.PromoteFinalizedEvent{Ref: refF1})
 		l1F.ExpectL1BlockRefByNumber(refH.Number, refH, nil)
 		l1F.ExpectL1BlockRefByNumber(refH.Number, refH, nil)
+		l2F.ExpectL2BlockRefByNumber(refD1.Number, refD1, nil)
+		l2F.ExpectL2BlockRefByNumber(refE0.Number, refE0, nil)
+		l2F.ExpectL2BlockRefByNumber(refE1.Number, refE1, nil)
+		l2F.ExpectL2BlockRefByNumber(refF0.Number, refF0, nil)
+		l2F.ExpectL2BlockRefByNumber(refF1.Number, refF1, nil)
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 		l1F.AssertExpectations(t)
