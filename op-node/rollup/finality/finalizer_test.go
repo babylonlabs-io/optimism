@@ -599,8 +599,13 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l2F := &testutils.MockL2Client{}
 		defer l2F.AssertExpectations(t)
 
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		sdkClient := mocks.NewMockISdkClient(ctl)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, l2F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi.babylonFinalityClient = sdkClient
 
 		// now say B1 was included in C and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refB1, DerivedFrom: refC})
@@ -632,6 +637,49 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		}
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC0Alt, DerivedFrom: refDAlt})
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1Alt, DerivedFrom: refDAlt})
+
+		l2F.ExpectL2BlockRefByNumber(refA1.Number, refA1, nil)
+		l2F.ExpectL2BlockRefByNumber(refB0.Number, refB0, nil)
+		l2F.ExpectL2BlockRefByNumber(refB1.Number, refB1, nil)
+		l2F.ExpectL2BlockRefByNumber(refC0Alt.Number, refC0Alt, nil)
+		l2F.ExpectL2BlockRefByNumber(refC1Alt.Number, refC1Alt, nil)
+
+		l2F.ExpectL2BlockRefByNumber(refA1.Number, refA1, nil)
+		l2F.ExpectL2BlockRefByNumber(refB0.Number, refB0, nil)
+		l2F.ExpectL2BlockRefByNumber(refB1.Number, refB1, nil)
+		l2F.ExpectL2BlockRefByNumber(refC0Alt.Number, refC0Alt, nil)
+		l2F.ExpectL2BlockRefByNumber(refC1Alt.Number, refC1Alt, nil)
+
+		queryBlocks := make([]*cwclient.L2Block, refB1.Number)
+		queryBlocks[0] = &cwclient.L2Block{
+			BlockHeight:    refA1.Number,
+			BlockHash:      refA1.Hash.String(),
+			BlockTimestamp: refA1.Time,
+		}
+		queryBlocks[1] = &cwclient.L2Block{
+			BlockHeight:    refB0.Number,
+			BlockHash:      refB0.Hash.String(),
+			BlockTimestamp: refB0.Time,
+		}
+		queryBlocks[2] = &cwclient.L2Block{
+			BlockHeight:    refB1.Number,
+			BlockHash:      refB1.Hash.String(),
+			BlockTimestamp: refB1.Time,
+		}
+		sdkClient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocks).Return(&refB1.Number, nil).AnyTimes()
+
+		queryBlocksTwo := make([]*cwclient.L2Block, 2)
+		queryBlocksTwo[0] = &cwclient.L2Block{
+			BlockHeight:    refC0Alt.Number,
+			BlockHash:      refC0Alt.Hash.String(),
+			BlockTimestamp: refC0Alt.Time,
+		}
+		queryBlocksTwo[1] = &cwclient.L2Block{
+			BlockHeight:    refC1Alt.Number,
+			BlockHash:      refC1Alt.Hash.String(),
+			BlockTimestamp: refC1Alt.Time,
+		}
+		sdkClient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocksTwo).Return(&refC1Alt.Number, nil).AnyTimes()
 
 		// We get an early finality signal for F, of the chain that did not include refC0Alt and refC1Alt,
 		// as L1 block F does not build on DAlt.
@@ -672,6 +720,34 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		// Due to the "finalityDelay" we don't repeat finality checks shortly after one another,
 		// and don't expect a finality attempt.
 		emitter.AssertExpectations(t)
+
+		l2F.ExpectL2BlockRefByNumber(refA1.Number, refA1, nil)
+		l2F.ExpectL2BlockRefByNumber(refB0.Number, refB0, nil)
+		l2F.ExpectL2BlockRefByNumber(refB1.Number, refB1, nil)
+		l2F.ExpectL2BlockRefByNumber(refC0.Number, refC0, nil)
+
+		queryBlocksThree := make([]*cwclient.L2Block, refC0.Number)
+		queryBlocksThree[0] = &cwclient.L2Block{
+			BlockHeight:    refA1.Number,
+			BlockHash:      refA1.Hash.String(),
+			BlockTimestamp: refA1.Time,
+		}
+		queryBlocksThree[1] = &cwclient.L2Block{
+			BlockHeight:    refB0.Number,
+			BlockHash:      refB0.Hash.String(),
+			BlockTimestamp: refB0.Time,
+		}
+		queryBlocksThree[2] = &cwclient.L2Block{
+			BlockHeight:    refB1.Number,
+			BlockHash:      refB1.Hash.String(),
+			BlockTimestamp: refB1.Time,
+		}
+		queryBlocksThree[3] = &cwclient.L2Block{
+			BlockHeight:    refC0.Number,
+			BlockHash:      refC0.Hash.String(),
+			BlockTimestamp: refC0.Time,
+		}
+		sdkClient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocksThree).Return(&refC0.Number, nil)
 
 		// if we reset the attempt, then we can finalize however.
 		fi.triedFinalizeAt = 0

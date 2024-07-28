@@ -243,9 +243,11 @@ func (fi *Finalizer) tryFinalize() {
 	finalizedL2 := fi.lastFinalizedL2 // may be zeroed if nothing was finalized since startup.
 	var finalizedDerivedFrom eth.BlockID
 	// go through the latest inclusion data, and find the last L2 block that was derived from a finalized L1 block
+	fi.log.Debug("tryFinalize", "finalityData", fi.finalityData, "finalizedL2", finalizedL2)
 	for _, fd := range fi.finalityData {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
 			lastFinalizedBlock := fi.findLastFinalizedL2BlockWithConsecutiveQuorom(fd.L2Block.Number, finalizedL2.Number)
+			fi.log.Debug("finalizing L2 block", "l2_block", fd.L2Block, "derived_from", fd.L1Block, "last_finalized_block", lastFinalizedBlock)
 
 			// set finalized block(s)
 			if lastFinalizedBlock != nil && lastFinalizedBlock.Number == fd.L2Block.Number {
