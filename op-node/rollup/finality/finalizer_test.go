@@ -534,9 +534,34 @@ func TestEngineQueue_Finalize(t *testing.T) {
 
 		l2F := &testutils.MockL2Client{}
 		defer l2F.AssertExpectations(t)
+		l2F.ExpectL2BlockRefByNumber(refA1.Number, refA1, nil)
+		l2F.ExpectL2BlockRefByNumber(refB0.Number, refB0, nil)
+		l2F.ExpectL2BlockRefByNumber(refB1.Number, refB1, nil)
+
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		sdkClient := mocks.NewMockISdkClient(ctl)
+		queryBlocks := make([]*cwclient.L2Block, refB1.Number)
+		queryBlocks[0] = &cwclient.L2Block{
+			BlockHeight:    refA1.Number,
+			BlockHash:      refA1.Hash.String(),
+			BlockTimestamp: refA1.Time,
+		}
+		queryBlocks[1] = &cwclient.L2Block{
+			BlockHeight:    refB0.Number,
+			BlockHash:      refB0.Hash.String(),
+			BlockTimestamp: refB0.Time,
+		}
+		queryBlocks[2] = &cwclient.L2Block{
+			BlockHeight:    refB1.Number,
+			BlockHash:      refB1.Hash.String(),
+			BlockTimestamp: refB1.Time,
+		}
+		sdkClient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocks).Return(&refB1.Number, nil)
 
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, l2F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi.babylonFinalityClient = sdkClient
 
 		// now say B1 was included in C and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refB1, DerivedFrom: refC})
