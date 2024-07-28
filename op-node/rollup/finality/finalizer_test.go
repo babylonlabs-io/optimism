@@ -277,9 +277,51 @@ func TestEngineQueue_Finalize(t *testing.T) {
 
 		l2F := &testutils.MockL2Client{}
 		defer l2F.AssertExpectations(t)
+		l2F.ExpectL2BlockRefByNumber(refA1.Number, refA1, nil)
+		l2F.ExpectL2BlockRefByNumber(refB0.Number, refB0, nil)
+		l2F.ExpectL2BlockRefByNumber(refB1.Number, refB1, nil)
+		l2F.ExpectL2BlockRefByNumber(refC0.Number, refC0, nil)
+		l2F.ExpectL2BlockRefByNumber(refC1.Number, refC1, nil)
+		l2F.ExpectL2BlockRefByNumber(refA1.Number, refA1, nil)
+		l2F.ExpectL2BlockRefByNumber(refB0.Number, refB0, nil)
+		l2F.ExpectL2BlockRefByNumber(refB1.Number, refB1, nil)
+		l2F.ExpectL2BlockRefByNumber(refC0.Number, refC0, nil)
+		l2F.ExpectL2BlockRefByNumber(refC1.Number, refC1, nil)
+
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		sdkClient := mocks.NewMockISdkClient(ctl)
+		queryBlocks := make([]*cwclient.L2Block, refC1.Number)
+		queryBlocks[0] = &cwclient.L2Block{
+			BlockHeight:    refA1.Number,
+			BlockHash:      refA1.Hash.String(),
+			BlockTimestamp: refA1.Time,
+		}
+		queryBlocks[1] = &cwclient.L2Block{
+			BlockHeight:    refB0.Number,
+			BlockHash:      refB0.Hash.String(),
+			BlockTimestamp: refB0.Time,
+		}
+		queryBlocks[2] = &cwclient.L2Block{
+			BlockHeight:    refB1.Number,
+			BlockHash:      refB1.Hash.String(),
+			BlockTimestamp: refB1.Time,
+		}
+		queryBlocks[3] = &cwclient.L2Block{
+			BlockHeight:    refC0.Number,
+			BlockHash:      refC0.Hash.String(),
+			BlockTimestamp: refC0.Time,
+		}
+		queryBlocks[4] = &cwclient.L2Block{
+			BlockHeight:    refC1.Number,
+			BlockHash:      refC1.Hash.String(),
+			BlockTimestamp: refC1.Time,
+		}
+		sdkClient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocks).Return(&refC1.Number, nil).AnyTimes()
 
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F, l2F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi.babylonFinalityClient = sdkClient
 
 		// now say C1 was included in D and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
