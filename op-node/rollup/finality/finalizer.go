@@ -248,14 +248,11 @@ func (fi *Finalizer) tryFinalize() {
 			lastFinalizedBlock := fi.findLastFinalizedL2BlockWithConsecutiveQuorom(fd.L2Block.Number, finalizedL2.Number)
 
 			// set finalized block(s)
-			if lastFinalizedBlock != nil {
-				finalizedL2, finalizedDerivedFrom = fi.updateFinalized(*lastFinalizedBlock, lastFinalizedBlock.L1Origin)
+			if lastFinalizedBlock != nil && lastFinalizedBlock.Number == fd.L2Block.Number {
+				finalizedL2 = *lastFinalizedBlock
+				finalizedDerivedFrom = fd.L1Block
 			}
 
-			// some blocks in the queried range is not BTC finalized, stop iterating to honor consecutive quorom
-			if lastFinalizedBlock == nil || lastFinalizedBlock.Number != fd.L2Block.Number {
-				break
-			}
 			// keep iterating, there may be later L2 blocks that can also be finalized
 		}
 	}
@@ -364,13 +361,6 @@ func (fi *Finalizer) findLastFinalizedL2BlockWithConsecutiveQuorom(
 		}
 	}
 	return nil
-}
-
-func (fi *Finalizer) updateFinalized(lastFinalizedBlock eth.L2BlockRef, fdL1Block eth.BlockID) (eth.L2BlockRef, eth.BlockID) {
-	finalizedL2 := lastFinalizedBlock
-	finalizedDerivedFrom := fdL1Block
-	fi.log.Debug("set finalized block", "l2_block", finalizedL2, "derived_from", finalizedDerivedFrom)
-	return finalizedL2, finalizedDerivedFrom
 }
 
 // onDerivedSafeBlock buffers the L1 block the safe head was fully derived from,
