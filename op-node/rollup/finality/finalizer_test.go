@@ -201,7 +201,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 
 		l2F := &testutils.MockL2Client{}
 		defer l2F.AssertExpectations(t)
-		helperL2BlockRefByNumberWithTimes(t, l2F, 1, refA1, refB0, refB1, refC0, refC1)
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refA1, refB0, refB1, refC0, refC1)
 
 		emitter := &testutils.MockEmitter{}
 		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
@@ -210,7 +210,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		defer ctl.Finish()
 		sdkClient := mocks.NewMockISdkClient(ctl)
 		fi.babylonFinalityClient = sdkClient
-		helperSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, 1, refA1, refB0, refB1, refC0, refC1)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient, 1, refA1, refB0, refB1, refC0, refC1)
 
 		// now say C1 was included in D and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
@@ -245,7 +245,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 
 		l2F := &testutils.MockL2Client{}
 		defer l2F.AssertExpectations(t)
-		helperL2BlockRefByNumberWithTimes(t, l2F, 2, refA1, refB0, refB1, refC0, refC1)
+		mockL2BlockRefByNumberWithTimes(l2F, 2, refA1, refB0, refB1, refC0, refC1)
 
 		emitter := &testutils.MockEmitter{}
 		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
@@ -253,7 +253,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		defer ctl.Finish()
 		sdkClient := mocks.NewMockISdkClient(ctl)
 		fi.babylonFinalityClient = sdkClient
-		helperSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, 2, refA1, refB0, refB1, refC0, refC1)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient, 2, refA1, refB0, refB1, refC0, refC1)
 
 		// now say C1 was included in D and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
@@ -318,8 +318,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		emitter.ExpectOnce(engine.PromoteFinalizedEvent{Ref: refC1})
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
-		helperL2BlockRefByNumberWithTimes(t, l2F, 2, refA1, refB0, refB1, refC0, refC1)
-		helperSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, 2, refA1, refB0, refB1, refC0, refC1)
+		mockL2BlockRefByNumberWithTimes(l2F, 2, refA1, refB0, refB1, refC0, refC1)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient, 2, refA1, refB0, refB1, refC0, refC1)
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 		l1F.AssertExpectations(t)
@@ -333,8 +333,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		emitter.ExpectOnce(engine.PromoteFinalizedEvent{Ref: refD0})
 		l1F.ExpectL1BlockRefByNumber(refE.Number, refE, nil)
 		l1F.ExpectL1BlockRefByNumber(refE.Number, refE, nil)
-		helperL2BlockRefByNumberWithTimes(t, l2F, 1, refD0)
-		helperSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, 1, refD0)
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refD0)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient, 1, refD0)
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 		l1F.AssertExpectations(t)
@@ -373,8 +373,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		emitter.ExpectOnce(engine.PromoteFinalizedEvent{Ref: refF1})
 		l1F.ExpectL1BlockRefByNumber(refH.Number, refH, nil)
 		l1F.ExpectL1BlockRefByNumber(refH.Number, refH, nil)
-		helperL2BlockRefByNumberWithTimes(t, l2F, 1, refD1, refE0, refE1, refF0, refF1)
-		helperSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, 1, refD1, refE0, refE1, refF0, refF1)
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refD1, refE0, refE1, refF0, refF1)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient, 1, refD1, refE0, refE1, refF0, refF1)
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 		l1F.AssertExpectations(t)
@@ -391,7 +391,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 
 		l2F := &testutils.MockL2Client{}
 		defer l2F.AssertExpectations(t)
-		helperL2BlockRefByNumberWithTimes(t, l2F, 1, refA1, refB0, refB1)
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refA1, refB0, refB1)
 
 		emitter := &testutils.MockEmitter{}
 		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
@@ -399,7 +399,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		defer ctl.Finish()
 		sdkClient := mocks.NewMockISdkClient(ctl)
 		fi.babylonFinalityClient = sdkClient
-		helperSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, 1, refA1, refB0, refB1)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient, 1, refA1, refB0, refB1)
 
 		// now say B1 was included in C and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refB1, DerivedFrom: refC})
@@ -475,9 +475,9 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC0Alt, DerivedFrom: refDAlt})
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1Alt, DerivedFrom: refDAlt})
 
-		helperL2BlockRefByNumberWithTimes(t, l2F, 2, refA1, refB0, refB1, refC0Alt, refC1Alt)
-		helperSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, 2, refA1, refB0, refB1)
-		helperSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, 2, refC0Alt, refC1Alt)
+		mockL2BlockRefByNumberWithTimes(l2F, 2, refA1, refB0, refB1, refC0Alt, refC1Alt)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient, 2, refA1, refB0, refB1)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient, 2, refC0Alt, refC1Alt)
 
 		// We get an early finality signal for F, of the chain that did not include refC0Alt and refC1Alt,
 		// as L1 block F does not build on DAlt.
@@ -519,8 +519,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		// and don't expect a finality attempt.
 		emitter.AssertExpectations(t)
 
-		helperL2BlockRefByNumberWithTimes(t, l2F, 1, refA1, refB0, refB1, refC0)
-		helperSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, 1, refA1, refB0, refB1, refC0)
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refA1, refB0, refB1, refC0)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient, 1, refA1, refB0, refB1, refC0)
 
 		// if we reset the attempt, then we can finalize however.
 		fi.triedFinalizeAt = 0
@@ -533,13 +533,13 @@ func TestEngineQueue_Finalize(t *testing.T) {
 	})
 }
 
-func helperL2BlockRefByNumberWithTimes(t *testing.T, l2F *testutils.MockL2Client, times int, refs ...eth.L2BlockRef) {
+func mockL2BlockRefByNumberWithTimes(l2F *testutils.MockL2Client, times int, refs ...eth.L2BlockRef) {
 	for _, ref := range refs {
 		l2F.ExpectL2BlockRefByNumberWithTimes(ref.Number, ref, times, nil)
 	}
 }
 
-func helperSdkClientQueryBlockRangeBabylonFinalized(t *testing.T, sdkClient *mocks.MockISdkClient, times int, refs ...eth.L2BlockRef) {
+func mockQueryBlockRangeBabylonFinalizedWithTimes(sdkClient *mocks.MockISdkClient, times int, refs ...eth.L2BlockRef) {
 	queryBlocks := make([]*cwclient.L2Block, len(refs))
 	for i, ref := range refs {
 		queryBlocks[i] = &cwclient.L2Block{
