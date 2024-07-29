@@ -159,7 +159,7 @@ func TestPlasmaFinalityData(t *testing.T) {
 			emitter.AssertExpectations(t)
 		}
 		if i < 10 {
-			mockSdkClientQueryBlockRangeBabylonFinalized(t, sdkClient, mockL2Refs)
+			mockQueryBlockRangeBabylonFinalized(sdkClient, mockL2Refs)
 		}
 
 		// might trigger finalization attempt, if expired finality delay
@@ -220,7 +220,7 @@ func TestPlasmaFinalityData(t *testing.T) {
 	require.Equal(t, expFinalityLookback, len(fi.finalityData))
 }
 
-func mockSdkClientQueryBlockRangeBabylonFinalized(t *testing.T, sdkClient *mocks.MockISdkClient, refs []eth.L2BlockRef) {
+func mockQueryBlockRangeBabylonFinalized(sdkClient *mocks.MockISdkClient, refs []eth.L2BlockRef) {
 	queryBlocks := make([]*cwclient.L2Block, len(refs))
 	for i, ref := range refs {
 		queryBlocks[i] = &cwclient.L2Block{
