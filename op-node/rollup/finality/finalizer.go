@@ -252,8 +252,8 @@ func (fi *Finalizer) tryFinalize() {
 			if lastFinalizedBlock != nil {
 				finalizedL2 = *lastFinalizedBlock
 				finalizedDerivedFrom = fd.L1Block
+				fi.log.Debug("set finalized block", "finalized_l2", finalizedL2, "finalized_derived_from", finalizedDerivedFrom, "fd_l2_block", fd.L2Block)
 			}
-			fi.log.Debug("set finalized block", "finalized_derived_from", finalizedDerivedFrom, "fd_l2_block", fd.L2Block)
 
 			// some blocks in the queried range is not BTC finalized, stop iterating to honor consecutive quorom
 			if lastFinalizedBlock == nil || lastFinalizedBlock.Number != fd.L2Block.Number {
