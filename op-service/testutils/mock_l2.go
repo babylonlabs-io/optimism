@@ -29,6 +29,10 @@ func (m *MockL2Client) ExpectL2BlockRefByNumber(num uint64, ref eth.L2BlockRef, 
 	m.Mock.On("L2BlockRefByNumber", num).Once().Return(ref, &err)
 }
 
+func (m *MockL2Client) ExpectL2BlockRefByNumberWithTimes(num uint64, ref eth.L2BlockRef, times int, err error) {
+	m.Mock.On("L2BlockRefByNumber", num).Times(times).Return(ref, &err)
+}
+
 func (c *MockL2Client) L2BlockRefByHash(ctx context.Context, hash common.Hash) (eth.L2BlockRef, error) {
 	out := c.Mock.Called(hash)
 	return out.Get(0).(eth.L2BlockRef), out.Error(1)
