@@ -204,7 +204,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		mockL2BlockRefByNumberWithTimes(l2F, 1, refA1, refB0, refB1, refC0, refC1)
 
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F)
+		fi.AttachEmitter(emitter)
 
 		ctl := gomock.NewController(t)
 		defer ctl.Finish()
@@ -249,7 +250,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		mockL2BlockRefByNumberWithTimes(l2F, 2, refA1, refB0, refB1, refC0, refC1)
 
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F)
+		fi.AttachEmitter(emitter)
 		ctl := gomock.NewController(t)
 		defer ctl.Finish()
 		sdkClient := mocks.NewMockISdkClient(ctl)
@@ -297,7 +299,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		defer l2F.AssertExpectations(t)
 
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F)
+		fi.AttachEmitter(emitter)
 		ctl := gomock.NewController(t)
 		defer ctl.Finish()
 		sdkClient := mocks.NewMockISdkClient(ctl)
@@ -397,7 +400,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		mockL2BlockRefByNumberWithTimes(l2F, 1, refA1, refB0, refB1)
 
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F)
+		fi.AttachEmitter(emitter)
 		ctl := gomock.NewController(t)
 		defer ctl.Finish()
 		sdkClient := mocks.NewMockISdkClient(ctl)
@@ -442,7 +446,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		defer l2F.AssertExpectations(t)
 
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F, emitter)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonConfig: babylonCfg}, l1F, l2F)
+		fi.AttachEmitter(emitter)
 		ctl := gomock.NewController(t)
 		defer ctl.Finish()
 		sdkClient := mocks.NewMockISdkClient(ctl)

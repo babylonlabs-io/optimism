@@ -1,8 +1,7 @@
 package metrics
 
 import (
-	"math/big"
-
+	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/types"
 	"github.com/prometheus/client_golang/prometheus"
 
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
@@ -16,8 +15,11 @@ type Metricer interface {
 
 	opmetrics.RPCMetricer
 
-	CacheAdd(chainID *big.Int, label string, cacheSize int, evicted bool)
-	CacheGet(chainID *big.Int, label string, hit bool)
+	CacheAdd(chainID types.ChainID, label string, cacheSize int, evicted bool)
+	CacheGet(chainID types.ChainID, label string, hit bool)
+
+	RecordDBEntryCount(chainID types.ChainID, count int64)
+	RecordDBSearchEntriesRead(chainID types.ChainID, count int64)
 
 	Document() []opmetrics.DocumentedMetric
 }
@@ -29,9 +31,12 @@ type Metrics struct {
 
 	opmetrics.RPCMetrics
 
-	SizeVec *prometheus.GaugeVec
-	GetVec  *prometheus.CounterVec
-	AddVec  *prometheus.CounterVec
+	CacheSizeVec *prometheus.GaugeVec
+	CacheGetVec  *prometheus.CounterVec
+	CacheAddVec  *prometheus.CounterVec
+
+	DBEntryCountVec        *prometheus.GaugeVec
+	DBSearchEntriesReadVec *prometheus.HistogramVec
 
 	info prometheus.GaugeVec
 	up   prometheus.Gauge
@@ -71,31 +76,47 @@ func NewMetrics(procName string) *Metrics {
 			Help:      "1 if the op-supervisor has finished starting up",
 		}),
 
-		SizeVec: factory.NewGaugeVec(prometheus.GaugeOpts{
+		CacheSizeVec: factory.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: ns,
 			Name:      "source_rpc_cache_size",
-			Help:      "source rpc cache cache size",
+			Help:      "Source rpc cache cache size",
 		}, []string{
 			"chain",
 			"type",
 		}),
-		GetVec: factory.NewCounterVec(prometheus.CounterOpts{
+		CacheGetVec: factory.NewCounterVec(prometheus.CounterOpts{
 			Namespace: ns,
 			Name:      "source_rpc_cache_get",
-			Help:      "source rpc cache lookups, hitting or not",
+			Help:      "Source rpc cache lookups, hitting or not",
 		}, []string{
 			"chain",
 			"type",
 			"hit",
 		}),
-		AddVec: factory.NewCounterVec(prometheus.CounterOpts{
+		CacheAddVec: factory.NewCounterVec(prometheus.CounterOpts{
 			Namespace: ns,
 			Name:      "source_rpc_cache_add",
-			Help:      "source rpc cache additions, evicting previous values or not",
+			Help:      "Source rpc cache additions, evicting previous values or not",
 		}, []string{
 			"chain",
 			"type",
 			"evicted",
+		}),
+
+		DBEntryCountVec: factory.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: ns,
+			Name:      "logdb_entries_current",
+			Help:      "Current number of entries in the log database by chain ID",
+		}, []string{
+			"chain",
+		}),
+		DBSearchEntriesReadVec: factory.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: ns,
+			Name:      "logdb_search_entries_read",
+			Help:      "Entries read per search of the log database",
+			Buckets:   []float64{1, 2, 5, 10, 100, 200, 256},
+		}, []string{
+			"chain",
 		}),
 	}
 }
@@ -119,21 +140,33 @@ func (m *Metrics) RecordUp() {
 	m.up.Set(1)
 }
 
-func (m *Metrics) CacheAdd(chainID *big.Int, label string, cacheSize int, evicted bool) {
-	chain := chainID.String()
-	m.SizeVec.WithLabelValues(chain, label).Set(float64(cacheSize))
+func (m *Metrics) CacheAdd(chainID types.ChainID, label string, cacheSize int, evicted bool) {
+	chain := chainIDLabel(chainID)
+	m.CacheSizeVec.WithLabelValues(chain, label).Set(float64(cacheSize))
 	if evicted {
-		m.AddVec.WithLabelValues(chain, label, "true").Inc()
+		m.CacheAddVec.WithLabelValues(chain, label, "true").Inc()
 	} else {
-		m.AddVec.WithLabelValues(chain, label, "false").Inc()
+		m.CacheAddVec.WithLabelValues(chain, label, "false").Inc()
 	}
 }
 
-func (m *Metrics) CacheGet(chainID *big.Int, label string, hit bool) {
-	chain := chainID.String()
+func (m *Metrics) CacheGet(chainID types.ChainID, label string, hit bool) {
+	chain := chainIDLabel(chainID)
 	if hit {
-		m.GetVec.WithLabelValues(chain, label, "true").Inc()
+		m.CacheGetVec.WithLabelValues(chain, label, "true").Inc()
 	} else {
-		m.GetVec.WithLabelValues(chain, label, "false").Inc()
+		m.CacheGetVec.WithLabelValues(chain, label, "false").Inc()
 	}
+}
+
+func (m *Metrics) RecordDBEntryCount(chainID types.ChainID, count int64) {
+	m.DBEntryCountVec.WithLabelValues(chainIDLabel(chainID)).Set(float64(count))
+}
+
+func (m *Metrics) RecordDBSearchEntriesRead(chainID types.ChainID, count int64) {
+	m.DBSearchEntriesReadVec.WithLabelValues(chainIDLabel(chainID)).Observe(float64(count))
+}
+
+func chainIDLabel(chainID types.ChainID) string {
+	return chainID.String()
 }

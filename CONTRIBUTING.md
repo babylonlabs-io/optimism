@@ -39,7 +39,7 @@ Interactions within this repository are subject to a [Code of Conduct](https://g
 
 #### `node`
 
-Make sure to use the version of `node` specified within [`.nvmrc`](..nvmrc).
+Make sure to use the version of `node` specified within [`.nvmrc`](./.nvmrc).
 You can use [`nvm`](https://github.com/nvm-sh/nvm) to manage multiple versions of Node.js on your machine and automatically switch to the correct version when you enter this repository.
 
 #### `foundry`
@@ -165,8 +165,8 @@ Also, all labels can be seen by visiting the [labels page][labels]
 When altering label names or deleting labels there are a few things you must be aware of.
 
 - This may affect the mergify bot's use of labels. See the [mergify config](.github/mergify.yml).
-- If the https://github.com/ethereum-optimism/labels/S-stale label is altered, the [close-stale](.github/workflows/close-stale.yml) workflow should be updated.
-- If the https://github.com/ethereum-optimism/labels/M-dependabot label is altered, the [dependabot config](.github/dependabot.yml) file should be adjusted.
+- If the https://github.com/ethereum-optimism/optimism/labels/S-stale label is altered, the [close-stale](.github/workflows/close-stale.yml) workflow should be updated.
+- If the https://github.com/ethereum-optimism/optimism/labels/M-dependabot label is altered, the [dependabot config](.github/dependabot.yml) file should be adjusted.
 - Saved label filters for project boards will not automatically update. These should be updated if label names change.
 
 ## Workflow for Pull Requests
