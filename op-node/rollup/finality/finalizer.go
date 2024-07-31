@@ -133,7 +133,7 @@ func NewFinalizer(ctx context.Context, log log.Logger, cfg *rollup.Config, l1Fet
 	)
 	babylonFinalityClient, err := sdkclient.NewClient(config)
 	if err != nil {
-		emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to initialize Babylon Finality client: %w", err)})
+		log.Error("failed to initialize Babylon Finality client", "error", err)
 		return nil
 	}
 
