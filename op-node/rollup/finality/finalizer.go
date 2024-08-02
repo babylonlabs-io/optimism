@@ -15,10 +15,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 
-	"github.com/babylonlabs-io/babylon-finality-gadget/sdk/btcclient"
-	sdkclient "github.com/babylonlabs-io/babylon-finality-gadget/sdk/client"
-	sdkcfg "github.com/babylonlabs-io/babylon-finality-gadget/sdk/config"
-	"github.com/babylonlabs-io/babylon-finality-gadget/sdk/cwclient"
+	"github.com/babylonlabs-io/finality-gadget/sdk/btcclient"
+	sdkclient "github.com/babylonlabs-io/finality-gadget/sdk/client"
+	sdkcfg "github.com/babylonlabs-io/finality-gadget/sdk/config"
+	"github.com/babylonlabs-io/finality-gadget/sdk/cwclient"
 )
 
 // defaultFinalityLookback defines the amount of L1<>L2 relations to track for finalization purposes, one per L1 block.
