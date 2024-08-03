@@ -43,7 +43,8 @@ config=$(cat << EOL
   "channelTimeout": 300,
 
   "p2pSequencerAddress": "$GS_SEQUENCER_ADDRESS",
-  "batchInboxAddress": "0xff00000000000000000000000000000000042069",
+  "batchInboxAddress": "0xff0000000000000000000000000000000042069",
+  "batchInboxAddress": "0xff511a900000000000000000000000000000901",
   "batchSenderAddress": "$GS_BATCHER_ADDRESS",
 
   "l2OutputOracleSubmissionInterval": 120,
@@ -106,8 +107,8 @@ config=$(cat << EOL
   "preimageOracleMinProposalSize": 1800000,
   "preimageOracleChallengePeriod": 86400,
 
-  "babylonFinalityGadgetChainType": "$BBN_FINALITY_GADGET_CHAIN_TYPE",
-  "babylonFinalityGadgetContractAddress": "$BBN_FINALITY_GADGET_CONTRACT_ADDRESS"
+  "babylonFinalityGadgetChainID": "$BBN_FINALITY_GADGET_CHAIN_ID",
+  "babylonFinalityGadgetContractAddress": "$BBN_FINALITY_GADGET_CONTRACT_ADDRESS",
   "babylonFinalityGadgetBitcoinRpc": "$BBN_FINALITY_GADGET_BITCOIN_RPC"
 }
 EOL
