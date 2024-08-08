@@ -50,7 +50,7 @@ fuzz:
 	go test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz FuzzDecodeDepositTxDataToL1Info ./rollup/driver
 
 generate-mocks:
-	go generate ./...
+	mockgen -source=./rollup/finality/expected_clients.go -package mocks -destination ./testutils/finalitygadget_client_mock.go
 
 readme:
 	doctoc README.md
