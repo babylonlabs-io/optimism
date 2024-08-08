@@ -1,5 +1,8 @@
 package finality
 
+// This should be updated to match the gRPC interface of the Babylon finality gadget client
+// https://github.com/babylonlabs-io/finality-gadget
+
 import "github.com/babylonlabs-io/finality-gadget/types"
 
 type IFinalityGadgetClient interface {
