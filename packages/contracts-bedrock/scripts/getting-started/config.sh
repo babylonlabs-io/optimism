@@ -106,9 +106,7 @@ config=$(cat << EOL
   "preimageOracleMinProposalSize": 1800000,
   "preimageOracleChallengePeriod": 86400,
 
-  "babylonFinalityGadgetChainID": "$BBN_FINALITY_GADGET_CHAIN_ID",
-  "babylonFinalityGadgetContractAddress": "$BBN_FINALITY_GADGET_CONTRACT_ADDRESS",
-  "babylonFinalityGadgetBitcoinRpc": "$BBN_FINALITY_GADGET_BITCOIN_RPC"
+  "babylonFinalityGadgetRpc": "$BBN_FINALITY_GADGET_RPC"
 }
 EOL
 )

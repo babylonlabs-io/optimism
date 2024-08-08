@@ -153,7 +153,7 @@ type Config struct {
 	LegacyUsePlasma bool `json:"use_plasma,omitempty"`
 
 	// Babylon config
-	BabylonConfig *BabylonConfig `json:"babylon_config"`
+	BabylonFinalityGadgetRpc string `json:"babylon_finality_gadget_rpc"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.

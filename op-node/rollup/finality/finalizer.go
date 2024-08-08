@@ -15,10 +15,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 
-	"github.com/babylonlabs-io/finality-gadget/sdk/btcclient"
-	sdkclient "github.com/babylonlabs-io/finality-gadget/sdk/client"
-	sdkcfg "github.com/babylonlabs-io/finality-gadget/sdk/config"
-	"github.com/babylonlabs-io/finality-gadget/sdk/cwclient"
+	fgclient "github.com/babylonlabs-io/finality-gadget/client"
+	fgtypes "github.com/babylonlabs-io/finality-gadget/types"
 )
 
 // defaultFinalityLookback defines the amount of L1<>L2 relations to track for finalization purposes, one per L1 block.
@@ -76,11 +74,6 @@ type FinalizerL2Interface interface {
 	L2BlockRefByNumber(context.Context, uint64) (eth.L2BlockRef, error)
 }
 
-type BabylonFinalityClient interface {
-	QueryBlockRangeBabylonFinalized(queryBlocks []*cwclient.L2Block) (*uint64, error)
-	QueryBtcStakingActivatedTimestamp() (uint64, error)
-}
-
 type Finalizer struct {
 	mu sync.Mutex
 
@@ -111,27 +104,18 @@ type Finalizer struct {
 	l2Fetcher FinalizerL2Interface
 
 	// babylonFinalityClient is the Babylon DA SDK client
-	babylonFinalityClient BabylonFinalityClient
+	babylonFinalityClient IFinalityGadgetClient
 }
 
 func NewFinalizer(ctx context.Context, log log.Logger, cfg *rollup.Config, l1Fetcher FinalizerL1Interface, l2Fetcher FinalizerL2Interface) *Finalizer {
 	lookback := calcFinalityLookback(cfg)
 
-	// Initialize the Babylon Finality client
-	btcConfig := btcclient.DefaultBTCConfig()
-	btcConfig.RPCHost = cfg.BabylonConfig.BitcoinRpc
-	config := &sdkcfg.Config{
-		ChainID:      cfg.BabylonConfig.ChainID,
-		ContractAddr: cfg.BabylonConfig.ContractAddress,
-		BTCConfig:    btcConfig,
-	}
+	// Initialize the Babylon finality gadget client
 	log.Debug(
 		"creating Babylon Finality client",
-		"chain_id", config.ChainID,
-		"contract_address", config.ContractAddr,
-		"btc_rpc_host", config.BTCConfig.RPCHost,
+		"rpc_addr", cfg.BabylonFinalityGadgetRpc,
 	)
-	babylonFinalityClient, err := sdkclient.NewClient(config)
+	babylonFinalityClient, err := fgclient.NewFinalityGadgetGrpcClient(cfg.BabylonFinalityGadgetRpc)
 	if err != nil {
 		log.Error("failed to initialize Babylon Finality client", "error", err)
 		return nil
@@ -248,7 +232,7 @@ func (fi *Finalizer) tryFinalize() {
 	defer fi.mu.Unlock()
 
 	gadgetActivatedTimestamp, err := fi.babylonFinalityClient.QueryBtcStakingActivatedTimestamp()
-	if err != nil && !errors.Is(err, sdkclient.ErrBtcStakingNotActivated) {
+	if err != nil && !errors.Is(err, fgtypes.ErrBtcStakingNotActivated) {
 		fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to query BTC staking activated timestamp: %w", err)})
 		return
 	}
@@ -332,7 +316,7 @@ func (fi *Finalizer) findLastBtcFinalizedL2Block(
 ) *eth.L2BlockRef {
 	blockCount := int(fdL2BlockNumber - finalizedL2Number)
 	l2Blocks := make(map[uint64]eth.L2BlockRef)
-	queryBlocks := make([]*cwclient.L2Block, 0, blockCount)
+	queryBlocks := make([]*fgtypes.Block, 0, blockCount)
 	var largestNonActivatedBlock *eth.L2BlockRef
 
 	for i := 0; i < blockCount; i++ {
@@ -356,7 +340,7 @@ func (fi *Finalizer) findLastBtcFinalizedL2Block(
 			continue
 		}
 
-		queryBlocks = append(queryBlocks, &cwclient.L2Block{
+		queryBlocks = append(queryBlocks, &fgtypes.Block{
 			BlockHeight:    l2Block.Number,
 			BlockHash:      l2Block.Hash.String(),
 			BlockTimestamp: l2Block.Time,

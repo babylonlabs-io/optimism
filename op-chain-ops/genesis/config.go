@@ -160,12 +160,8 @@ type L2VaultsDeployConfig struct {
 	L1FeeVaultWithdrawalNetwork WithdrawalNetwork `json:"l1FeeVaultWithdrawalNetwork"`
 	// SequencerFeeVaultWithdrawalNetwork represents the withdrawal network for the SequencerFeeVault.
 	SequencerFeeVaultWithdrawalNetwork WithdrawalNetwork `json:"sequencerFeeVaultWithdrawalNetwork"`
-	// BabylonFinalityGadgetChainID is the Chain ID of the Babylon chain for the Babylon finality gadget
-	BabylonFinalityGadgetChainID string `json:"babylonFinalityGadgetChainID"`
-	// BabylonFinalityGadgetContractAddress is the contract address for the Babylon finality gadget on Babylon chain.
-	BabylonFinalityGadgetContractAddress string `json:"babylonFinalityGadgetContractAddress"`
-	// BabylonFinalityGadgetBitcoinRpc is the Bitcoin RPC URL for the Babylon finality gadget.
-	BabylonFinalityGadgetBitcoinRpc string `json:"babylonFinalityGadgetBitcoinRpc"`
+	// BabylonFinalityGadgetRpc is the RPC URL for the Babylon finality gadget.
+	BabylonFinalityGadgetRpc string `json:"babylonFinalityGadgetRpc"`
 }
 
 var _ ConfigChecker = (*L2VaultsDeployConfig)(nil)
@@ -870,27 +866,23 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 				GasLimit:    uint64(d.L2GenesisBlockGasLimit),
 			},
 		},
-		BlockTime:              d.L2BlockTime,
-		MaxSequencerDrift:      d.MaxSequencerDrift,
-		SeqWindowSize:          d.SequencerWindowSize,
-		ChannelTimeout:         d.ChannelTimeout,
-		L1ChainID:              new(big.Int).SetUint64(d.L1ChainID),
-		L2ChainID:              new(big.Int).SetUint64(d.L2ChainID),
-		BatchInboxAddress:      d.BatchInboxAddress,
-		DepositContractAddress: d.OptimismPortalProxy,
-		L1SystemConfigAddress:  d.SystemConfigProxy,
-		RegolithTime:           d.RegolithTime(l1StartBlock.Time()),
-		CanyonTime:             d.CanyonTime(l1StartBlock.Time()),
-		DeltaTime:              d.DeltaTime(l1StartBlock.Time()),
-		EcotoneTime:            d.EcotoneTime(l1StartBlock.Time()),
-		FjordTime:              d.FjordTime(l1StartBlock.Time()),
-		InteropTime:            d.InteropTime(l1StartBlock.Time()),
-		PlasmaConfig:           plasma,
-		BabylonConfig: &rollup.BabylonConfig{
-			ChainID:         d.BabylonFinalityGadgetChainID,
-			ContractAddress: d.BabylonFinalityGadgetContractAddress,
-			BitcoinRpc:      d.BabylonFinalityGadgetBitcoinRpc,
-		},
+		BlockTime:                d.L2BlockTime,
+		MaxSequencerDrift:        d.MaxSequencerDrift,
+		SeqWindowSize:            d.SequencerWindowSize,
+		ChannelTimeout:           d.ChannelTimeout,
+		L1ChainID:                new(big.Int).SetUint64(d.L1ChainID),
+		L2ChainID:                new(big.Int).SetUint64(d.L2ChainID),
+		BatchInboxAddress:        d.BatchInboxAddress,
+		DepositContractAddress:   d.OptimismPortalProxy,
+		L1SystemConfigAddress:    d.SystemConfigProxy,
+		RegolithTime:             d.RegolithTime(l1StartBlock.Time()),
+		CanyonTime:               d.CanyonTime(l1StartBlock.Time()),
+		DeltaTime:                d.DeltaTime(l1StartBlock.Time()),
+		EcotoneTime:              d.EcotoneTime(l1StartBlock.Time()),
+		FjordTime:                d.FjordTime(l1StartBlock.Time()),
+		InteropTime:              d.InteropTime(l1StartBlock.Time()),
+		PlasmaConfig:             plasma,
+		BabylonFinalityGadgetRpc: d.BabylonFinalityGadgetRpc,
 	}, nil
 }
 

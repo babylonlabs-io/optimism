@@ -32,6 +32,13 @@ export L2_CHAIN_ID=42069
 export L2_BLOCK_TIME=2
 
 ##################################################
+#              babylon Configuration             #
+##################################################
+
+# Babylonchain finality gadget
+export BBN_FINALITY_GADGET_RPC=
+
+##################################################
 #              op-node Configuration             #
 ##################################################
 
