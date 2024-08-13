@@ -67,14 +67,14 @@ func TestPlasmaFinalityData(t *testing.T) {
 				GasLimit:    20_000_000,
 			},
 		},
-		BlockTime:     1,
-		SeqWindowSize: 2,
+		BlockTime:                1,
+		SeqWindowSize:            2,
+		BabylonFinalityGadgetRpc: "https://mock-finality-gadget-rpc.com",
 	}
 	plasmaCfg := &rollup.PlasmaConfig{
 		DAChallengeWindow: 90,
 		DAResolveWindow:   90,
 	}
-	cfg.BabylonFinalityGadgetRpc = "https://mock-finality-gadget-rpc.com"
 	// shoud return l1 finality if plasma is not enabled
 	require.Equal(t, uint64(defaultFinalityLookback), calcFinalityLookback(cfg))
 
@@ -118,8 +118,9 @@ func TestPlasmaFinalityData(t *testing.T) {
 
 	// advance over 200 l1 origins each time incrementing new l2 safe heads
 	// and post processing.
+	l1FinalityBlockNumber := uint64(10)
 	for i := uint64(0); i < 200; i++ {
-		if i == 10 { // finalize a L1 commitment
+		if i == l1FinalityBlockNumber { // finalize a L1 commitment
 			fi.OnEvent(FinalizeL1Event{FinalizedL1: l1parent})
 			emitter.AssertExpectations(t) // no events emitted upon L1 finality
 			require.Equal(t, l1parent, commitmentInclusionFinalized, "plasma backend received L1 signal")
@@ -147,14 +148,14 @@ func TestPlasmaFinalityData(t *testing.T) {
 				L1Origin:       previous.ID(), // reference previous origin, not the block the batch was included in
 				SequenceNumber: j,
 			}
-			if i < 10 {
+			if i < l1FinalityBlockNumber {
 				mockL2Refs = append(mockL2Refs, l2parent)
 				l2F.ExpectL2BlockRefByNumber(l2parent.Number, l2parent, nil)
 			}
 			fi.OnEvent(engine.SafeDerivedEvent{Safe: l2parent, DerivedFrom: l1parent})
 			emitter.AssertExpectations(t)
 		}
-		if i < 10 {
+		if i < l1FinalityBlockNumber {
 			mockQueryBlockRangeBabylonFinalized(fgclient, mockL2Refs)
 		}
 		// might trigger finalization attempt, if expired finality delay
