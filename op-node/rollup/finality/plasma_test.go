@@ -10,14 +10,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
+	fgtypes "github.com/babylonlabs-io/finality-gadget/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
+	fgmocks "github.com/ethereum-optimism/optimism/op-node/testutils"
 	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"go.uber.org/mock/gomock"
 )
 
 type fakePlasmaBackend struct {
@@ -36,10 +39,6 @@ func (b *fakePlasmaBackend) OnFinalizedHeadSignal(f plasma.HeadSignalFn) {
 var _ PlasmaBackend = (*fakePlasmaBackend)(nil)
 
 func TestPlasmaFinalityData(t *testing.T) {
-	if true {
-		// TODO(snapchain): to fix
-		return
-	}
 	logger := testlog.Logger(t, log.LevelInfo)
 	l1F := &testutils.MockL1Source{}
 	l2F := &testutils.MockL2Client{}
@@ -75,6 +74,7 @@ func TestPlasmaFinalityData(t *testing.T) {
 		DAChallengeWindow: 90,
 		DAResolveWindow:   90,
 	}
+	cfg.BabylonFinalityGadgetRpc = "https://mock-finality-gadget-rpc.com"
 	// shoud return l1 finality if plasma is not enabled
 	require.Equal(t, uint64(defaultFinalityLookback), calcFinalityLookback(cfg))
 
@@ -105,6 +105,11 @@ func TestPlasmaFinalityData(t *testing.T) {
 	fi := NewPlasmaFinalizer(context.Background(), logger, cfg, l1F, l2F, plasmaBackend)
 	fi.AttachEmitter(emitter)
 	require.NotNil(t, plasmaBackend.forwardTo, "plasma backend must have access to underlying standard finalizer")
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+	fgclient := fgmocks.NewMockIFinalityGadgetClient(ctl)
+	fi.babylonFinalityClient = fgclient
+	mockActivatedTimestamp(fgclient)
 
 	require.Equal(t, expFinalityLookback, cap(fi.finalityData))
 
@@ -128,6 +133,11 @@ func TestPlasmaFinalityData(t *testing.T) {
 			Time:       previous.Time + 12,
 		}
 
+		mockL2Refs := []eth.L2BlockRef{}
+		if i == 0 {
+			mockL2Refs = append(mockL2Refs, l2parent)
+			l2F.ExpectL2BlockRefByNumber(l2parent.Number, l2parent, nil)
+		}
 		for j := uint64(0); j < 2; j++ {
 			l2parent = eth.L2BlockRef{
 				Hash:           testutils.RandomHash(rng),
@@ -137,8 +147,15 @@ func TestPlasmaFinalityData(t *testing.T) {
 				L1Origin:       previous.ID(), // reference previous origin, not the block the batch was included in
 				SequenceNumber: j,
 			}
+			if i < 10 {
+				mockL2Refs = append(mockL2Refs, l2parent)
+				l2F.ExpectL2BlockRefByNumber(l2parent.Number, l2parent, nil)
+			}
 			fi.OnEvent(engine.SafeDerivedEvent{Safe: l2parent, DerivedFrom: l1parent})
 			emitter.AssertExpectations(t)
+		}
+		if i < 10 {
+			mockQueryBlockRangeBabylonFinalized(fgclient, mockL2Refs)
 		}
 		// might trigger finalization attempt, if expired finality delay
 		emitter.ExpectMaybeRun(func(ev event.Event) {
@@ -193,4 +210,16 @@ func TestPlasmaFinalityData(t *testing.T) {
 	// finality data does not go over challenge + resolve windows + 1 capacity
 	// (prunes down to 180 then adds the extra 1 each time)
 	require.Equal(t, expFinalityLookback, len(fi.finalityData))
+}
+
+func mockQueryBlockRangeBabylonFinalized(fgclient *fgmocks.MockIFinalityGadgetClient, refs []eth.L2BlockRef) {
+	queryBlocks := make([]*fgtypes.Block, len(refs))
+	for i, ref := range refs {
+		queryBlocks[i] = &fgtypes.Block{
+			BlockHeight:    ref.Number,
+			BlockHash:      ref.Hash.String(),
+			BlockTimestamp: ref.Time,
+		}
+	}
+	fgclient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocks).Return(&refs[len(refs)-1].Number, nil)
 }
