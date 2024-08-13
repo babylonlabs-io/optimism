@@ -51,6 +51,7 @@ fuzz:
 
 generate-mocks:
 	go generate ./...
+	mockgen -source=./rollup/finality/expected_clients.go -package mocks -destination ./testutils/finalitygadget_client_mock.go
 
 readme:
 	doctoc README.md
