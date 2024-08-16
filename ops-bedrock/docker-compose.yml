@@ -12,6 +12,9 @@ volumes:
   da_data:
   op_log:
 
+networks:
+  artifacts_localnet:
+    external: true
 
 services:
 
@@ -87,6 +90,9 @@ services:
       - "/entrypoint.sh"
     environment:
       GETH_MINER_RECOMMIT: 100ms
+    networks:
+      - default
+      - artifacts_localnet
 
   op-node:
     depends_on:
