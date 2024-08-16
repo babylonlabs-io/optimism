@@ -147,6 +147,9 @@ services:
       - "${PWD}/test-jwt-secret.txt:/config/jwt-secret.txt"
       - "${PWD}/../.devnet/rollup.json:/rollup.json"
       - op_log:/op_log
+    networks:
+      - default
+      - artifacts_localnet
 
   op-proposer:
     depends_on:
@@ -177,6 +180,9 @@ services:
       OP_PROPOSER_METRICS_ENABLED: "true"
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
       OP_PROPOSER_RPC_ENABLE_ADMIN: "true"
+    networks:
+      - default
+      - artifacts_localnet
 
   op-batcher:
     depends_on:
@@ -212,6 +218,9 @@ services:
       # uncomment to use blobs
       # (requires L1 Dencun and L2 Ecotone activation first)
       # OP_BATCHER_DATA_AVAILABILITY_TYPE: blobs
+    networks:
+      - default
+      - artifacts_localnet
 
   op-challenger:
     depends_on:
