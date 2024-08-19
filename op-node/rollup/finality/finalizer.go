@@ -340,16 +340,17 @@ func (fi *Finalizer) findLastBtcFinalizedL2Block(
 			continue
 		}
 
-		queryBlocks = append(queryBlocks, &fgtypes.Block{
+		queryBlock := &fgtypes.Block{
 			BlockHeight:    l2Block.Number,
 			BlockHash:      l2Block.Hash.String(),
 			BlockTimestamp: l2Block.Time,
-		})
+		}
+		queryBlocks = append(queryBlocks, queryBlock)
 		fi.log.Debug(
 			"added block to babylon gadget's query params",
-			"block_height", queryBlocks[i].BlockHeight,
-			"block_hash", queryBlocks[i].BlockHash,
-			"block_timestamp", queryBlocks[i].BlockTimestamp,
+			"block_height", queryBlock.BlockHeight,
+			"block_hash", queryBlock.BlockHash,
+			"block_timestamp", queryBlock.BlockTimestamp,
 		)
 	}
 
