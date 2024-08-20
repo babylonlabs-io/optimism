@@ -175,6 +175,8 @@ pre-devnet: submodules $(DEVNET_CANNON_PRESTATE_FILES)
 .PHONY: pre-devnet
 
 devnet-up: pre-devnet ## Starts the local devnet
+	./ops/scripts/newer-file.sh .devnet/allocs-l1.json ./packages/contracts-bedrock \
+		|| make devnet-allocs
 	PYTHONPATH=./bedrock-devnet $(PYTHON) ./bedrock-devnet/main.py --monorepo-dir=.
 .PHONY: devnet-up
 
