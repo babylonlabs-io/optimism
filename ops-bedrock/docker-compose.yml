@@ -12,6 +12,10 @@ volumes:
   da_data:
   op_log:
 
+# This is added for Babylon integration deployment scripts
+# TODO: Remove this once we have a better way to do this
+# e.g. update this compose file with the bash script before the op devnet setup
+# and revert it when op devnet down
 networks:
   artifacts_localnet:
     external: true
