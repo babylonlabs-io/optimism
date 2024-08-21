@@ -340,16 +340,17 @@ func (fi *Finalizer) findLastBtcFinalizedL2Block(
 			continue
 		}
 
-		queryBlocks = append(queryBlocks, &fgtypes.Block{
+		queryBlock := &fgtypes.Block{
 			BlockHeight:    l2Block.Number,
 			BlockHash:      l2Block.Hash.String(),
 			BlockTimestamp: l2Block.Time,
-		})
+		}
+		queryBlocks = append(queryBlocks, queryBlock)
 		fi.log.Debug(
 			"added block to babylon gadget's query params",
-			"block_height", queryBlocks[i].BlockHeight,
-			"block_hash", queryBlocks[i].BlockHash,
-			"block_timestamp", queryBlocks[i].BlockTimestamp,
+			"block_height", queryBlock.BlockHeight,
+			"block_hash", queryBlock.BlockHash,
+			"block_timestamp", queryBlock.BlockTimestamp,
 		)
 	}
 
@@ -359,8 +360,6 @@ func (fi *Finalizer) findLastBtcFinalizedL2Block(
 	}
 
 	lastFinalizedBlockNumber, err := fi.babylonFinalityClient.QueryBlockRangeBabylonFinalized(queryBlocks)
-	fi.log.Debug("QueryBlockRangeBabylonFinalized", "lastFinalizedBlockNumber", lastFinalizedBlockNumber)
-
 	if err != nil {
 		// on CriticalError, the chain will get stuck because
 		// op-e2e/actions/l2_verifier.go will detect it and panic
@@ -373,6 +372,7 @@ func (fi *Finalizer) findLastBtcFinalizedL2Block(
 	}
 
 	if lastFinalizedBlockNumber != nil {
+		fi.log.Debug("QueryBlockRangeBabylonFinalized", "lastFinalizedBlockNumber", *lastFinalizedBlockNumber)
 		res := l2Blocks[*lastFinalizedBlockNumber]
 		return &res
 	}
