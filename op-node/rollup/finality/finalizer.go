@@ -2,8 +2,8 @@ package finality
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -232,7 +232,7 @@ func (fi *Finalizer) tryFinalize() {
 	defer fi.mu.Unlock()
 
 	gadgetActivatedTimestamp, err := fi.babylonFinalityClient.QueryBtcStakingActivatedTimestamp()
-	if err != nil && !errors.Is(err, fgtypes.ErrBtcStakingNotActivated) {
+	if err != nil && !strings.Contains(err.Error(), fgtypes.ErrBtcStakingNotActivated.Error()) {
 		fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to query BTC staking activated timestamp: %w", err)})
 		return
 	}
