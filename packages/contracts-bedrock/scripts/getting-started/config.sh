@@ -142,7 +142,7 @@ cat << EOL >> tmp_config.json
   "faultGameWithdrawalDelay": 600,
 
   "preimageOracleMinProposalSize": 1800000,
-  "preimageOracleChallengePeriod": 300
+  "preimageOracleChallengePeriod": 300,
 
   "babylonFinalityGadgetRpc": "$BBN_FINALITY_GADGET_RPC"
 }
