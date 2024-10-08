@@ -1,0 +1,17 @@
+name: docker_publish
+
+on:
+  pull_request:
+    branches:
+    - 'feat/babylon-rfc'
+
+jobs:
+  docker_pipeline:
+    uses: babylonlabs-io/.github/.github/workflows/reusable_docker_pipeline.yml@v0.5.0
+    needs: []
+    secrets: inherit
+    with:
+      publish: true
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-node-target
+
