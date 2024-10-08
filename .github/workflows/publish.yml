@@ -27,5 +27,5 @@ jobs:
           push: true
           file: ./ops/docker/op-stack-go/Dockerfile
           target: op-node-target
-          outputs: type=image,name=${{ vars.DOCKERHUB_REGISTRY_ID }}/op-node-babylon-finality-gadget:v0.100901.1,push-by-digest=true,push=true
+          outputs: type=image,name=${{ vars.DOCKERHUB_REGISTRY_ID }}/op-node-babylon-finality-gadget:v0.100901.1,push=true
 
