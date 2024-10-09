@@ -20,6 +20,11 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+
       - name: Build and push to Docker Hub
         id: build-dockerhub
         uses: docker/build-push-action@v6
@@ -27,5 +32,5 @@ jobs:
           push: true
           file: ./ops/docker/op-stack-go/Dockerfile
           target: op-node-target
-          outputs: type=image,name=${{ vars.DOCKERHUB_REGISTRY_ID }}/op-node-babylon-finality-gadget:v0.100901.1,push=true
+          outputs: type=image,name=${{ vars.DOCKERHUB_REGISTRY_ID }}/op-node-babylon-finality-gadget:${{ steps.get_version.outputs.VERSION }},push=true
 
