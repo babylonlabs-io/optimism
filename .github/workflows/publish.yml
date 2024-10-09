@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
     - 'feat/babylon-rfc'
+  push:
+    tags:
+    - 'v*'
 
 jobs:
   docker_pipeline:
@@ -23,7 +26,12 @@ jobs:
 
       - name: Get the version
         id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+        run: |
+          if [[ $GITHUB_REF == refs/pull/* ]]; then
+            echo "VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build and push to Docker Hub
         id: build-dockerhub
@@ -32,5 +40,5 @@ jobs:
           push: true
           file: ./ops/docker/op-stack-go/Dockerfile
           target: op-node-target
-          outputs: type=image,name=${{ vars.DOCKERHUB_REGISTRY_ID }}/op-node-babylon-finality-gadget:${{ steps.get_version.outputs.VERSION }},push=true
+          outputs: type=image,name=${{ vars.DOCKERHUB_REGISTRY_ID }}/op-node-babylon-finality-gadget:${{ steps.get_version.outputs.VERSION }}
 
