@@ -11,12 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
+	fgtypes "github.com/babylonlabs-io/finality-gadget/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
+	fgmocks "github.com/ethereum-optimism/optimism/op-node/testutils"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"go.uber.org/mock/gomock"
 )
 
 func TestEngineQueue_Finalize(t *testing.T) {
@@ -91,6 +94,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		BlockTime:     1,
 		SeqWindowSize: 2,
 	}
+	cfg.BabylonFinalityGadgetRpc = "https://mock-finality-gadget-rpc.com"
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
 		Number:         refA0.Number + 1,
@@ -190,9 +194,20 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refA1, refB0, refB1, refC0, refC1)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonFinalityGadgetRpc: cfg.BabylonFinalityGadgetRpc}, l1F, l2F)
 		fi.AttachEmitter(emitter)
+
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		fgclient := fgmocks.NewMockIFinalityGadgetClient(ctl)
+		fi.babylonFinalityClient = fgclient
+		mockActivatedTimestamp(fgclient)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(fgclient, 1, refA1, refB0, refB1, refC0, refC1)
 
 		// now say C1 was included in D and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
@@ -225,9 +240,20 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil) // to check finality signal
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil) // to check what was derived from (same in this case)
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+		mockL2BlockRefByNumberWithTimes(l2F, 2, refA1, refB0, refB1, refC0, refC1)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonFinalityGadgetRpc: cfg.BabylonFinalityGadgetRpc}, l1F, l2F)
 		fi.AttachEmitter(emitter)
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		fg := fgmocks.NewMockIFinalityGadgetClient(ctl)
+
+		fi.babylonFinalityClient = fg
+		mockActivatedTimestamp(fg)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(fg, 2, refA1, refB0, refB1, refC0, refC1)
 
 		// now say C1 was included in D and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
@@ -265,9 +291,17 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
 		defer l1F.AssertExpectations(t)
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonFinalityGadgetRpc: cfg.BabylonFinalityGadgetRpc}, l1F, l2F)
 		fi.AttachEmitter(emitter)
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		fg := fgmocks.NewMockIFinalityGadgetClient(ctl)
+		fi.babylonFinalityClient = fg
+		mockActivatedTimestamp(fg)
 
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1, DerivedFrom: refD})
 		fi.OnEvent(derive.DeriverIdleEvent{Origin: refD})
@@ -286,6 +320,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		emitter.ExpectOnce(engine.PromoteFinalizedEvent{Ref: refC1})
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil)
+		mockL2BlockRefByNumberWithTimes(l2F, 2, refA1, refB0, refB1, refC0, refC1)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(fg, 2, refA1, refB0, refB1, refC0, refC1)
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 		l1F.AssertExpectations(t)
@@ -299,6 +335,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		emitter.ExpectOnce(engine.PromoteFinalizedEvent{Ref: refD0})
 		l1F.ExpectL1BlockRefByNumber(refE.Number, refE, nil)
 		l1F.ExpectL1BlockRefByNumber(refE.Number, refE, nil)
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refD0)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(fg, 1, refD0)
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 		l1F.AssertExpectations(t)
@@ -337,6 +375,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		emitter.ExpectOnce(engine.PromoteFinalizedEvent{Ref: refF1})
 		l1F.ExpectL1BlockRefByNumber(refH.Number, refH, nil)
 		l1F.ExpectL1BlockRefByNumber(refH.Number, refH, nil)
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refD1, refE0, refE1, refF0, refF1)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(fg, 1, refD1, refE0, refE1, refF0, refF1)
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 		l1F.AssertExpectations(t)
@@ -351,9 +391,19 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F.ExpectL1BlockRefByNumber(refD.Number, refD, nil) // check the signal
 		l1F.ExpectL1BlockRefByNumber(refC.Number, refC, nil) // check what we derived the L2 block from
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refA1, refB0, refB1)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonFinalityGadgetRpc: cfg.BabylonFinalityGadgetRpc}, l1F, l2F)
 		fi.AttachEmitter(emitter)
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		fg := fgmocks.NewMockIFinalityGadgetClient(ctl)
+		fi.babylonFinalityClient = fg
+		mockActivatedTimestamp(fg)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(fg, 1, refA1, refB0, refB1)
 
 		// now say B1 was included in C and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refB1, DerivedFrom: refC})
@@ -388,9 +438,17 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		l1F.ExpectL1BlockRefByNumber(refF.Number, refF, nil) // check signal
 		l1F.ExpectL1BlockRefByNumber(refE.Number, refE, nil) // post-reorg
 
+		l2F := &testutils.MockL2Client{}
+		defer l2F.AssertExpectations(t)
+
 		emitter := &testutils.MockEmitter{}
-		fi := NewFinalizer(context.Background(), logger, &rollup.Config{}, l1F)
+		fi := NewFinalizer(context.Background(), logger, &rollup.Config{BabylonFinalityGadgetRpc: cfg.BabylonFinalityGadgetRpc}, l1F, l2F)
 		fi.AttachEmitter(emitter)
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		fg := fgmocks.NewMockIFinalityGadgetClient(ctl)
+		mockActivatedTimestamp(fg)
+		fi.babylonFinalityClient = fg
 
 		// now say B1 was included in C and became the new safe head
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refB1, DerivedFrom: refC})
@@ -422,6 +480,10 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		}
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC0Alt, DerivedFrom: refDAlt})
 		fi.OnEvent(engine.SafeDerivedEvent{Safe: refC1Alt, DerivedFrom: refDAlt})
+
+		mockL2BlockRefByNumberWithTimes(l2F, 2, refA1, refB0, refB1, refC0Alt, refC1Alt)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(fg, 2, refA1, refB0, refB1)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(fg, 2, refC0Alt, refC1Alt)
 
 		// We get an early finality signal for F, of the chain that did not include refC0Alt and refC1Alt,
 		// as L1 block F does not build on DAlt.
@@ -463,6 +525,9 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		// and don't expect a finality attempt.
 		emitter.AssertExpectations(t)
 
+		mockL2BlockRefByNumberWithTimes(l2F, 1, refA1, refB0, refB1, refC0)
+		mockQueryBlockRangeBabylonFinalizedWithTimes(fg, 1, refA1, refB0, refB1, refC0)
+
 		// if we reset the attempt, then we can finalize however.
 		fi.triedFinalizeAt = 0
 		emitter.ExpectOnce(TryFinalizeEvent{})
@@ -472,4 +537,26 @@ func TestEngineQueue_Finalize(t *testing.T) {
 		fi.OnEvent(TryFinalizeEvent{})
 		emitter.AssertExpectations(t)
 	})
+}
+
+func mockL2BlockRefByNumberWithTimes(l2F *testutils.MockL2Client, times int, refs ...eth.L2BlockRef) {
+	for _, ref := range refs {
+		l2F.ExpectL2BlockRefByNumberWithTimes(ref.Number, ref, times, nil)
+	}
+}
+
+func mockQueryBlockRangeBabylonFinalizedWithTimes(fg *fgmocks.MockIFinalityGadgetClient, times int, refs ...eth.L2BlockRef) {
+	queryBlocks := make([]*fgtypes.Block, len(refs))
+	for i, ref := range refs {
+		queryBlocks[i] = &fgtypes.Block{
+			BlockHeight:    ref.Number,
+			BlockHash:      ref.Hash.String(),
+			BlockTimestamp: ref.Time,
+		}
+	}
+	fg.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocks).Return(&refs[len(refs)-1].Number, nil).Times(times)
+}
+
+func mockActivatedTimestamp(fg *fgmocks.MockIFinalityGadgetClient) {
+	fg.EXPECT().QueryBtcStakingActivatedTimestamp().Return(uint64(0), nil).AnyTimes()
 }

@@ -1,0 +1,44 @@
+name: docker_publish
+
+on:
+  pull_request:
+    branches:
+    - 'feat/babylon-rfc'
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  docker_pipeline:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get the version
+        id: get_version
+        run: |
+          if [[ $GITHUB_REF == refs/pull/* ]]; then
+            echo "VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push to Docker Hub
+        id: build-dockerhub
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          file: ./ops/docker/op-stack-go/Dockerfile
+          target: op-node-target
+          outputs: type=image,name=${{ vars.DOCKERHUB_REGISTRY_ID }}/op-node-babylon-finality-gadget:${{ steps.get_version.outputs.VERSION }}
+

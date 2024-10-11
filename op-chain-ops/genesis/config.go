@@ -161,6 +161,8 @@ type L2VaultsDeployConfig struct {
 	L1FeeVaultWithdrawalNetwork WithdrawalNetwork `json:"l1FeeVaultWithdrawalNetwork"`
 	// SequencerFeeVaultWithdrawalNetwork represents the withdrawal network for the SequencerFeeVault.
 	SequencerFeeVaultWithdrawalNetwork WithdrawalNetwork `json:"sequencerFeeVaultWithdrawalNetwork"`
+	// BabylonFinalityGadgetRpc is the RPC URL for the Babylon finality gadget.
+	BabylonFinalityGadgetRpc string `json:"babylonFinalityGadgetRpc"`
 }
 
 var _ ConfigChecker = (*L2VaultsDeployConfig)(nil)
@@ -912,23 +914,24 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 				GasLimit:    uint64(d.L2GenesisBlockGasLimit),
 			},
 		},
-		BlockTime:              d.L2BlockTime,
-		MaxSequencerDrift:      d.MaxSequencerDrift,
-		SeqWindowSize:          d.SequencerWindowSize,
-		ChannelTimeoutBedrock:  d.ChannelTimeoutBedrock,
-		L1ChainID:              new(big.Int).SetUint64(d.L1ChainID),
-		L2ChainID:              new(big.Int).SetUint64(d.L2ChainID),
-		BatchInboxAddress:      d.BatchInboxAddress,
-		DepositContractAddress: d.OptimismPortalProxy,
-		L1SystemConfigAddress:  d.SystemConfigProxy,
-		RegolithTime:           d.RegolithTime(l1StartBlock.Time()),
-		CanyonTime:             d.CanyonTime(l1StartBlock.Time()),
-		DeltaTime:              d.DeltaTime(l1StartBlock.Time()),
-		EcotoneTime:            d.EcotoneTime(l1StartBlock.Time()),
-		FjordTime:              d.FjordTime(l1StartBlock.Time()),
-		GraniteTime:            d.GraniteTime(l1StartBlock.Time()),
-		InteropTime:            d.InteropTime(l1StartBlock.Time()),
-		AltDAConfig:            altDA,
+		BlockTime:                d.L2BlockTime,
+		MaxSequencerDrift:        d.MaxSequencerDrift,
+		SeqWindowSize:            d.SequencerWindowSize,
+		ChannelTimeoutBedrock:    d.ChannelTimeoutBedrock,
+		L1ChainID:                new(big.Int).SetUint64(d.L1ChainID),
+		L2ChainID:                new(big.Int).SetUint64(d.L2ChainID),
+		BatchInboxAddress:        d.BatchInboxAddress,
+		DepositContractAddress:   d.OptimismPortalProxy,
+		L1SystemConfigAddress:    d.SystemConfigProxy,
+		RegolithTime:             d.RegolithTime(l1StartBlock.Time()),
+		CanyonTime:               d.CanyonTime(l1StartBlock.Time()),
+		DeltaTime:                d.DeltaTime(l1StartBlock.Time()),
+		EcotoneTime:              d.EcotoneTime(l1StartBlock.Time()),
+		FjordTime:                d.FjordTime(l1StartBlock.Time()),
+		GraniteTime:              d.GraniteTime(l1StartBlock.Time()),
+		InteropTime:              d.InteropTime(l1StartBlock.Time()),
+		AltDAConfig:              altDA,
+		BabylonFinalityGadgetRpc: d.BabylonFinalityGadgetRpc,
 	}, nil
 }
 

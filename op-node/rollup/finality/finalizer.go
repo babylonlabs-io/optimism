@@ -3,6 +3,7 @@ package finality
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +14,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+
+	fgclient "github.com/babylonlabs-io/finality-gadget/client"
+	fgtypes "github.com/babylonlabs-io/finality-gadget/types"
 )
 
 // defaultFinalityLookback defines the amount of L1<>L2 relations to track for finalization purposes, one per L1 block.
@@ -66,6 +70,10 @@ type FinalizerL1Interface interface {
 	L1BlockRefByNumber(context.Context, uint64) (eth.L1BlockRef, error)
 }
 
+type FinalizerL2Interface interface {
+	L2BlockRefByNumber(context.Context, uint64) (eth.L2BlockRef, error)
+}
+
 type Finalizer struct {
 	mu sync.Mutex
 
@@ -92,18 +100,37 @@ type Finalizer struct {
 	finalityLookback uint64
 
 	l1Fetcher FinalizerL1Interface
+
+	l2Fetcher FinalizerL2Interface
+
+	// babylonFinalityClient is the Babylon DA SDK client
+	babylonFinalityClient IFinalityGadgetClient
 }
 
-func NewFinalizer(ctx context.Context, log log.Logger, cfg *rollup.Config, l1Fetcher FinalizerL1Interface) *Finalizer {
+func NewFinalizer(ctx context.Context, log log.Logger, cfg *rollup.Config, l1Fetcher FinalizerL1Interface, l2Fetcher FinalizerL2Interface) *Finalizer {
 	lookback := calcFinalityLookback(cfg)
+
+	// Initialize the Babylon finality gadget client
+	log.Debug(
+		"creating Babylon Finality client",
+		"rpc_addr", cfg.BabylonFinalityGadgetRpc,
+	)
+	babylonFinalityClient, err := fgclient.NewFinalityGadgetGrpcClient(cfg.BabylonFinalityGadgetRpc)
+	if err != nil {
+		log.Error("failed to initialize Babylon Finality client", "error", err)
+		return nil
+	}
+
 	return &Finalizer{
-		ctx:              ctx,
-		log:              log,
-		finalizedL1:      eth.L1BlockRef{},
-		triedFinalizeAt:  0,
-		finalityData:     make([]FinalityData, 0, lookback),
-		finalityLookback: lookback,
-		l1Fetcher:        l1Fetcher,
+		ctx:                   ctx,
+		log:                   log,
+		finalizedL1:           eth.L1BlockRef{},
+		triedFinalizeAt:       0,
+		finalityData:          make([]FinalityData, 0, lookback),
+		finalityLookback:      lookback,
+		l1Fetcher:             l1Fetcher,
+		l2Fetcher:             l2Fetcher,
+		babylonFinalityClient: babylonFinalityClient,
 	}
 }
 
@@ -204,14 +231,34 @@ func (fi *Finalizer) tryFinalize() {
 	fi.mu.Lock()
 	defer fi.mu.Unlock()
 
+	gadgetActivatedTimestamp, err := fi.babylonFinalityClient.QueryBtcStakingActivatedTimestamp()
+	if err != nil && !strings.Contains(err.Error(), fgtypes.ErrBtcStakingNotActivated.Error()) {
+		fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to query BTC staking activated timestamp: %w", err)})
+		return
+	}
+
 	// overwritten if we finalize
 	finalizedL2 := fi.lastFinalizedL2 // may be zeroed if nothing was finalized since startup.
 	var finalizedDerivedFrom eth.BlockID
 	// go through the latest inclusion data, and find the last L2 block that was derived from a finalized L1 block
+	fi.log.Debug("try finalize", "finality_data", fi.finalityData, "last_finalized_l2", finalizedL2)
 	for _, fd := range fi.finalityData {
 		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
-			finalizedL2 = fd.L2Block
-			finalizedDerivedFrom = fd.L1Block
+			lastFinalizedBlock := fi.findLastBtcFinalizedL2Block(
+				fd.L2Block.Number, finalizedL2.Number, gadgetActivatedTimestamp)
+
+			// set finalized block(s)
+			if lastFinalizedBlock != nil {
+				finalizedL2 = *lastFinalizedBlock
+				finalizedDerivedFrom = fd.L1Block
+				fi.log.Debug("set finalized block", "finalized_l2", finalizedL2, "finalized_derived_from", finalizedDerivedFrom, "fd_l2_block", fd.L2Block)
+			}
+
+			// some blocks in the queried range is not BTC finalized, stop iterating to honor consecutive quorom
+			if lastFinalizedBlock == nil || lastFinalizedBlock.Number != fd.L2Block.Number {
+				break
+			}
+
 			// keep iterating, there may be later L2 blocks that can also be finalized
 		}
 	}
@@ -246,6 +293,90 @@ func (fi *Finalizer) tryFinalize() {
 		}
 		fi.emitter.Emit(engine.PromoteFinalizedEvent{Ref: finalizedL2})
 	}
+}
+
+/*
+ *  findLastBtcFinalizedL2Block tries to find the last finalized L2 block with consecutive quorom
+ *
+ *  If there are any L2 blocks that are not finalized, then we can't finalize the later ones.
+ *  This is because we need to finalize the L2 blocks in order to guarantee consecutive quorom.
+ *
+ *  It queries the Babylon gadget to check if the L2 blocks are finalized.
+ *  If the error encountered is of type NoFpHasVotingPowerError, it should be ignored;
+ *  for any other error types, emit an critical error event.
+ *
+ *  It returns the last finalized L2 block.
+ *
+ *  If there is an error, it returns immediately with the last finalized L2 block that has no error.
+ */
+func (fi *Finalizer) findLastBtcFinalizedL2Block(
+	fdL2BlockNumber uint64, // candidate L2 block number to finalize
+	finalizedL2Number uint64, // last finalized L2 block number
+	gadgetActivatedTimestamp uint64, // BTC staking activated timestamp
+) *eth.L2BlockRef {
+	blockCount := int(fdL2BlockNumber - finalizedL2Number)
+	l2Blocks := make(map[uint64]eth.L2BlockRef)
+	queryBlocks := make([]*fgtypes.Block, 0, blockCount)
+	var largestNonActivatedBlock *eth.L2BlockRef
+
+	for i := 0; i < blockCount; i++ {
+		blockNumber := uint64(i) + finalizedL2Number + uint64(1)
+		l2Block, err := fi.l2Fetcher.L2BlockRefByNumber(fi.ctx, blockNumber)
+		if err != nil {
+			fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf(
+				"failed to check if block %d to %d is finalized on Babylon, could not fetch block %d: %w",
+				finalizedL2Number+1,
+				fdL2BlockNumber,
+				blockNumber,
+				err,
+			)})
+			return nil
+		}
+		l2Blocks[blockNumber] = l2Block
+
+		// only query blocks after the gadget is activated
+		if l2Block.Time < gadgetActivatedTimestamp {
+			largestNonActivatedBlock = &l2Block
+			continue
+		}
+
+		queryBlock := &fgtypes.Block{
+			BlockHeight:    l2Block.Number,
+			BlockHash:      l2Block.Hash.String(),
+			BlockTimestamp: l2Block.Time,
+		}
+		queryBlocks = append(queryBlocks, queryBlock)
+		fi.log.Debug(
+			"added block to babylon gadget's query params",
+			"block_height", queryBlock.BlockHeight,
+			"block_hash", queryBlock.BlockHash,
+			"block_timestamp", queryBlock.BlockTimestamp,
+		)
+	}
+
+	// btc staking is not activated yet, so we don't need to check quorum to finalize the blocks
+	if len(queryBlocks) == 0 {
+		return largestNonActivatedBlock
+	}
+
+	lastFinalizedBlockNumber, err := fi.babylonFinalityClient.QueryBlockRangeBabylonFinalized(queryBlocks)
+	if err != nil {
+		// on CriticalError, the chain will get stuck because
+		// op-e2e/actions/l2_verifier.go will detect it and panic
+		fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf(
+			"failed to check if block %d to %d is finalized on Babylon: %w",
+			finalizedL2Number+1,
+			fdL2BlockNumber,
+			err,
+		)})
+	}
+
+	if lastFinalizedBlockNumber != nil {
+		fi.log.Debug("QueryBlockRangeBabylonFinalized", "lastFinalizedBlockNumber", *lastFinalizedBlockNumber)
+		res := l2Blocks[*lastFinalizedBlockNumber]
+		return &res
+	}
+	return largestNonActivatedBlock
 }
 
 // onDerivedSafeBlock buffers the L1 block the safe head was fully derived from,
