@@ -110,15 +110,19 @@ type Finalizer struct {
 func NewFinalizer(ctx context.Context, log log.Logger, cfg *rollup.Config, l1Fetcher FinalizerL1Interface, l2Fetcher FinalizerL2Interface) *Finalizer {
 	lookback := calcFinalityLookback(cfg)
 
-	// Initialize the Babylon finality gadget client
-	log.Debug(
-		"creating Babylon Finality client",
-		"rpc_addr", cfg.BabylonFinalityGadgetRpc,
-	)
-	babylonFinalityClient, err := fgclient.NewFinalityGadgetGrpcClient(cfg.BabylonFinalityGadgetRpc)
-	if err != nil {
-		log.Error("failed to initialize Babylon Finality client", "error", err)
-		return nil
+	var babylonFinalityClient IFinalityGadgetClient
+	var err error
+	if cfg.BabylonFinalityGadgetRpc != "" {
+		// Initialize the Babylon finality gadget client
+		log.Debug(
+			"creating Babylon Finality client",
+			"rpc_addr", cfg.BabylonFinalityGadgetRpc,
+		)
+		babylonFinalityClient, err = fgclient.NewFinalityGadgetGrpcClient(cfg.BabylonFinalityGadgetRpc)
+		if err != nil {
+			log.Error("failed to initialize Babylon Finality client", "error", err)
+			return nil
+		}
 	}
 
 	return &Finalizer{
@@ -231,37 +235,49 @@ func (fi *Finalizer) tryFinalize() {
 	fi.mu.Lock()
 	defer fi.mu.Unlock()
 
-	gadgetActivatedTimestamp, err := fi.babylonFinalityClient.QueryBtcStakingActivatedTimestamp()
-	if err != nil && !strings.Contains(err.Error(), fgtypes.ErrBtcStakingNotActivated.Error()) {
-		fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to query BTC staking activated timestamp: %w", err)})
-		return
-	}
-
 	// overwritten if we finalize
 	finalizedL2 := fi.lastFinalizedL2 // may be zeroed if nothing was finalized since startup.
 	var finalizedDerivedFrom eth.BlockID
+
 	// go through the latest inclusion data, and find the last L2 block that was derived from a finalized L1 block
 	fi.log.Debug("try finalize", "finality_data", fi.finalityData, "last_finalized_l2", finalizedL2)
-	for _, fd := range fi.finalityData {
-		if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
-			lastFinalizedBlock := fi.findLastBtcFinalizedL2Block(
-				fd.L2Block.Number, finalizedL2.Number, gadgetActivatedTimestamp)
-
-			// set finalized block(s)
-			if lastFinalizedBlock != nil {
-				finalizedL2 = *lastFinalizedBlock
+	if fi.babylonFinalityClient == nil {
+		for _, fd := range fi.finalityData {
+			if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
+				finalizedL2 = fd.L2Block
 				finalizedDerivedFrom = fd.L1Block
-				fi.log.Debug("set finalized block", "finalized_l2", finalizedL2, "finalized_derived_from", finalizedDerivedFrom, "fd_l2_block", fd.L2Block)
+				// keep iterating, there may be later L2 blocks that can also be finalized
 			}
+		}
+	} else {
+		gadgetActivatedTimestamp, err := fi.babylonFinalityClient.QueryBtcStakingActivatedTimestamp()
+		if err != nil && !strings.Contains(err.Error(), fgtypes.ErrBtcStakingNotActivated.Error()) {
+			fi.emitter.Emit(rollup.CriticalErrorEvent{Err: fmt.Errorf("failed to query BTC staking activated timestamp: %w", err)})
+			return
+		}
 
-			// some blocks in the queried range is not BTC finalized, stop iterating to honor consecutive quorom
-			if lastFinalizedBlock == nil || lastFinalizedBlock.Number != fd.L2Block.Number {
-				break
+		for _, fd := range fi.finalityData {
+			if fd.L2Block.Number > finalizedL2.Number && fd.L1Block.Number <= fi.finalizedL1.Number {
+				lastFinalizedBlock := fi.findLastBtcFinalizedL2Block(
+					fd.L2Block.Number, finalizedL2.Number, gadgetActivatedTimestamp)
+
+				// set finalized block(s)
+				if lastFinalizedBlock != nil {
+					finalizedL2 = *lastFinalizedBlock
+					finalizedDerivedFrom = fd.L1Block
+					fi.log.Debug("set finalized block", "finalized_l2", finalizedL2, "finalized_derived_from", finalizedDerivedFrom, "fd_l2_block", fd.L2Block)
+				}
+
+				// some blocks in the queried range is not BTC finalized, stop iterating to honor consecutive quorom
+				if lastFinalizedBlock == nil || lastFinalizedBlock.Number != fd.L2Block.Number {
+					break
+				}
+
+				// keep iterating, there may be later L2 blocks that can also be finalized
 			}
-
-			// keep iterating, there may be later L2 blocks that can also be finalized
 		}
 	}
+
 	if finalizedDerivedFrom != (eth.BlockID{}) {
 		ctx, cancel := context.WithTimeout(fi.ctx, time.Second*10)
 		defer cancel()
