@@ -1,4 +1,4 @@
-name: 'Integration Deployment'
+name: 'lint and test (op-node)'
 
 on:
   workflow_dispatch:
