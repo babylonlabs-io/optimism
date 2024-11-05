@@ -116,9 +116,9 @@ func NewL2Verifier(t Testing, log log.Logger, l1 derive.L1Fetcher, blobsSrc deri
 
 	var finalizer driver.Finalizer
 	if cfg.AltDAEnabled() {
-		finalizer = finality.NewAltDAFinalizer(ctx, log, cfg, l1, altDASrc)
+		finalizer = finality.NewAltDAFinalizer(ctx, log, cfg, l1, eng, altDASrc)
 	} else {
-		finalizer = finality.NewFinalizer(ctx, log, cfg, l1)
+		finalizer = finality.NewFinalizer(ctx, log, cfg, l1, eng)
 	}
 	sys.Register("finalizer", finalizer, opts)
 

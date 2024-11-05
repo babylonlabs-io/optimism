@@ -63,6 +63,15 @@ type AltDAConfig struct {
 	DAResolveWindow uint64 `json:"da_resolve_window"`
 }
 
+type BabylonConfig struct {
+	// Chain ID of the Babylon chain
+	ChainID string `json:"chain_id"`
+	// CosmWasm contract address deployed on the Babylon chain
+	ContractAddress string `json:"contract_address"`
+	// Bitcoin RPC url
+	BitcoinRpc string `json:"bitcoin_rpc"`
+}
+
 type Config struct {
 	// Genesis anchor point of the rollup
 	Genesis Genesis `json:"genesis"`
@@ -137,6 +146,9 @@ type Config struct {
 
 	// AltDAConfig. We are in the process of migrating to the AltDAConfig from these legacy top level values
 	AltDAConfig *AltDAConfig `json:"alt_da,omitempty"`
+
+	// Babylon config
+	BabylonFinalityGadgetRpc string `json:"babylon_finality_gadget_rpc"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.

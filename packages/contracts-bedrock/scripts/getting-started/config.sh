@@ -61,7 +61,7 @@ cat << EOL > tmp_config.json
   "channelTimeout": 300,
 
   "p2pSequencerAddress": "$GS_SEQUENCER_ADDRESS",
-  "batchInboxAddress": "0xff00000000000000000000000000000000042069",
+  "batchInboxAddress": "0xff511a9000000000000000000000000000000901",
   "batchSenderAddress": "$GS_BATCHER_ADDRESS",
 
   "l2OutputOracleSubmissionInterval": 120,
@@ -142,7 +142,9 @@ cat << EOL >> tmp_config.json
   "faultGameWithdrawalDelay": 600,
 
   "preimageOracleMinProposalSize": 1800000,
-  "preimageOracleChallengePeriod": 300
+  "preimageOracleChallengePeriod": 300,
+
+  "babylonFinalityGadgetRpc": "$BBN_FINALITY_GADGET_RPC"
 }
 EOL
 

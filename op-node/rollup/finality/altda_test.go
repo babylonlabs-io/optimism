@@ -6,15 +6,18 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
+	fgtypes "github.com/babylonlabs-io/finality-gadget/types"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
+	fgmocks "github.com/ethereum-optimism/optimism/op-node/testutils"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
@@ -38,6 +41,7 @@ var _ AltDABackend = (*fakeAltDABackend)(nil)
 func TestAltDAFinalityData(t *testing.T) {
 	logger := testlog.Logger(t, log.LevelInfo)
 	l1F := &testutils.MockL1Source{}
+	l2F := &testutils.MockL2Client{}
 
 	rng := rand.New(rand.NewSource(1234))
 
@@ -63,8 +67,9 @@ func TestAltDAFinalityData(t *testing.T) {
 				GasLimit:    20_000_000,
 			},
 		},
-		BlockTime:     1,
-		SeqWindowSize: 2,
+		BlockTime:                1,
+		SeqWindowSize:            2,
+		BabylonFinalityGadgetRpc: "https://mock-finality-gadget-rpc.com",
 	}
 	altDACfg := &rollup.AltDAConfig{
 		DAChallengeWindow: 90,
@@ -97,9 +102,14 @@ func TestAltDAFinalityData(t *testing.T) {
 	}
 
 	emitter := &testutils.MockEmitter{}
-	fi := NewAltDAFinalizer(context.Background(), logger, cfg, l1F, altDABackend)
+	fi := NewAltDAFinalizer(context.Background(), logger, cfg, l1F, l2F, altDABackend)
 	fi.AttachEmitter(emitter)
 	require.NotNil(t, altDABackend.forwardTo, "altda backend must have access to underlying standard finalizer")
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+	fgclient := fgmocks.NewMockIFinalityGadgetClient(ctl)
+	fi.babylonFinalityClient = fgclient
+	mockActivatedTimestamp(fgclient)
 
 	require.Equal(t, expFinalityLookback, cap(fi.finalityData))
 
@@ -108,8 +118,9 @@ func TestAltDAFinalityData(t *testing.T) {
 
 	// advance over 200 l1 origins each time incrementing new l2 safe heads
 	// and post processing.
+	l1FinalityBlockNumber := uint64(10)
 	for i := uint64(0); i < 200; i++ {
-		if i == 10 { // finalize a L1 commitment
+		if i == l1FinalityBlockNumber { // finalize a L1 commitment
 			fi.OnEvent(FinalizeL1Event{FinalizedL1: l1parent})
 			emitter.AssertExpectations(t) // no events emitted upon L1 finality
 			require.Equal(t, l1parent, commitmentInclusionFinalized, "altda backend received L1 signal")
@@ -123,6 +134,11 @@ func TestAltDAFinalityData(t *testing.T) {
 			Time:       previous.Time + 12,
 		}
 
+		mockL2Refs := []eth.L2BlockRef{}
+		if i == 0 {
+			mockL2Refs = append(mockL2Refs, l2parent)
+			l2F.ExpectL2BlockRefByNumber(l2parent.Number, l2parent, nil)
+		}
 		for j := uint64(0); j < 2; j++ {
 			l2parent = eth.L2BlockRef{
 				Hash:           testutils.RandomHash(rng),
@@ -132,8 +148,15 @@ func TestAltDAFinalityData(t *testing.T) {
 				L1Origin:       previous.ID(), // reference previous origin, not the block the batch was included in
 				SequenceNumber: j,
 			}
+			if i < l1FinalityBlockNumber {
+				mockL2Refs = append(mockL2Refs, l2parent)
+				l2F.ExpectL2BlockRefByNumber(l2parent.Number, l2parent, nil)
+			}
 			fi.OnEvent(engine.SafeDerivedEvent{Safe: l2parent, DerivedFrom: l1parent})
 			emitter.AssertExpectations(t)
+		}
+		if i < l1FinalityBlockNumber {
+			mockQueryBlockRangeBabylonFinalized(fgclient, mockL2Refs)
 		}
 		// might trigger finalization attempt, if expired finality delay
 		emitter.ExpectMaybeRun(func(ev event.Event) {
@@ -188,4 +211,16 @@ func TestAltDAFinalityData(t *testing.T) {
 	// finality data does not go over challenge + resolve windows + 1 capacity
 	// (prunes down to 180 then adds the extra 1 each time)
 	require.Equal(t, expFinalityLookback, len(fi.finalityData))
+}
+
+func mockQueryBlockRangeBabylonFinalized(fgclient *fgmocks.MockIFinalityGadgetClient, refs []eth.L2BlockRef) {
+	queryBlocks := make([]*fgtypes.Block, len(refs))
+	for i, ref := range refs {
+		queryBlocks[i] = &fgtypes.Block{
+			BlockHeight:    ref.Number,
+			BlockHash:      ref.Hash.String(),
+			BlockTimestamp: ref.Time,
+		}
+	}
+	fgclient.EXPECT().QueryBlockRangeBabylonFinalized(queryBlocks).Return(&refs[len(refs)-1].Number, nil)
 }

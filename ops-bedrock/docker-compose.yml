@@ -12,6 +12,13 @@ volumes:
   da_data:
   op_log:
 
+# This is added for Babylon integration deployment scripts
+# TODO: Remove this once we have a better way to do this
+# e.g. update this compose file with the bash script before the op devnet setup
+# and revert it when op devnet down
+networks:
+  artifacts_localnet:
+    external: true
 
 services:
 
@@ -87,6 +94,9 @@ services:
       - "/entrypoint.sh"
     environment:
       GETH_MINER_RECOMMIT: 100ms
+    networks:
+      - default
+      - artifacts_localnet
 
   op-node:
     depends_on:
@@ -141,6 +151,9 @@ services:
       - "${PWD}/test-jwt-secret.txt:/config/jwt-secret.txt"
       - "${PWD}/../.devnet/rollup.json:/rollup.json"
       - op_log:/op_log
+    networks:
+      - default
+      - artifacts_localnet
 
   op-proposer:
     depends_on:

@@ -1462,6 +1462,7 @@ jobs:
       - notify-failures-on-develop
 
 workflows:
+  when: false  # This will disable all workflows
   main:
     when:
       and:
