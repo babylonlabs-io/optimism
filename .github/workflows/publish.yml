@@ -5,6 +5,8 @@ on:
     branches:
     - 'feat/babylon-rfc'
   push:
+    branches:
+    - 'feat/babylon-rfc'
     tags:
     - 'v*'
 
